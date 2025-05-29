@@ -18,6 +18,7 @@ def get_location_adcode(location: str) -> Optional[str]:
     Returns:
         行政区划编码或None（如果查询失败）
     """
+    print("Run to here.............................")
     geo_url = f"https://restapi.amap.com/v3/geocode/geo?key={AMAP_API_KEY}&address={location}"
     try:
         response = requests.get(geo_url, timeout=5)

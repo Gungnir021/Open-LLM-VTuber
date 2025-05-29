@@ -1,7 +1,7 @@
-from typing import AsyncIterator, Dict, Any, List
+from typing import AsyncIterator, Dict, Any, List, Optional
 import json
+import re
 from loguru import logger
-import time
 from datetime import datetime
 
 from .agent_interface import AgentInterface
@@ -31,10 +31,10 @@ class WeatherAgent(AgentInterface):
         self.memory = [
             {"role": "system", "content": self.system_prompt}
         ]
-        self.tool_call_count = 0  # 添加工具调用计数器
-        self.last_tool_call_time = None  # 添加最后一次工具调用时间
-        self.last_tool_name = None  # 添加最后一次调用的工具名称
-        self.last_tool_args = None  # 添加最后一次调用的工具参数
+        self.tool_call_count = 0  # 工具调用计数器
+        self.last_tool_call_time = None  # 最后一次工具调用时间
+        self.last_tool_name = None  # 最后一次调用的工具名称
+        self.last_tool_args = None  # 最后一次调用的工具参数
         
         # 如果提供了API密钥，可以在这里设置
         # if api_key:
@@ -52,92 +52,95 @@ class WeatherAgent(AgentInterface):
         messages = self.memory.copy()
         logger.debug(f"发送消息到LLM: {len(messages)}条消息")
         logger.info(f"当前工具调用次数: {self.tool_call_count}")
-    
+        
+        # 简单的天气意图检测
+        weather_intent, location = self._detect_weather_intent(user_text)
+        
         try:
-            # 第一次调用：检查是否应该使用工具
             response_text = ""
-            tool_response = None
             
-            # 使用async for正确处理异步生成器
-            async for chunk in self.llm.chat_completion(messages=messages, tools=self.tools()):
-                response_text += chunk
-                # 检查是否是工具调用的JSON响应
-                if chunk.startswith('{"message":{"tool_calls"'):
-                    try:
-                        tool_response = json.loads(chunk)
-                        break  # 找到工具调用，停止收集
-                    except json.JSONDecodeError:
-                        pass
-            
-            # 解析响应
-            if tool_response:
-                # 处理工具调用
-                response_message = tool_response.get("message", {})
-                tool_calls = response_message.get("tool_calls", [])
+            if weather_intent and location:
+                # 直接调用天气API
+                logger.info(f"检测到天气查询意图，地点: {location}")
                 
-                if tool_calls:
-                    logger.info(f"检测到{len(tool_calls)}个工具调用")
-                    self.memory.append(response_message)
-                    
-                    # 处理每个工具调用
-                    for tool_call in tool_calls:
-                        function_name = tool_call['function']['name']
-                        function_args = json.loads(tool_call['function']['arguments'])
-                        
-                        # 记录工具调用信息
-                        self.tool_call_count += 1
-                        self.last_tool_call_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        self.last_tool_name = function_name
-                        self.last_tool_args = function_args
-                        
-                        logger.info(f"调用工具: {function_name}, 参数: {function_args}, 时间: {self.last_tool_call_time}")
-                        tool_result = self.call_tool(function_name, function_args)
-                        
-                        self.memory.append({
-                            "role": "tool",
-                            "name": function_name,
-                            "content": json.dumps(tool_result, ensure_ascii=False),
-                        })
-    
-                # 第二次调用：返回最终答案
-                second_response_text = ""
+                # 记录工具调用信息
+                self.tool_call_count += 1
+                self.last_tool_call_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                self.last_tool_name = "get_current_temperature"
+                self.last_tool_args = {"location": location}
+                
+                # 调用天气API
+                weather_result = self.call_tool("get_current_temperature", {"location": location})
+                
+                # 将工具结果添加到记忆中
+                self.memory.append({
+                    "role": "tool",
+                    "name": "get_current_temperature",
+                    "content": json.dumps(weather_result, ensure_ascii=False),
+                })
+                
+                # 使用LLM生成最终回答
                 async for chunk in self.llm.chat_completion(messages=self.memory):
-                    second_response_text += chunk
+                    response_text += chunk
                 
-                answer = second_response_text
-                
-                # 添加验证信息到回答中
+                # 添加验证信息
                 verification_info = f"\n\n[系统信息: 已成功调用天气API，工具名称: {self.last_tool_name}, 调用时间: {self.last_tool_call_time}]"
-                logger.info(f"已添加天气API调用验证信息到回答中")
-                answer += verification_info
+                response_text += verification_info
             else:
-                logger.info("LLM直接回答，不使用工具")
-                answer = response_text
-        else:
-            # 如果没有工具调用，使用收集到的文本作为回答
-            logger.info("LLM直接回答，不使用工具")
-            answer = response_text
+                # 常规LLM对话
+                logger.info("未检测到明确的天气查询意图，使用常规对话")
+                async for chunk in self.llm.chat_completion(messages=messages):
+                    response_text += chunk
+            
+            # 将回答添加到记忆中
+            self.memory.append({"role": "assistant", "content": response_text})
+            
+            # 创建显示文本对象
+            display_text = DisplayText(text=response_text, name="天气助手")
+            
+            # 返回SentenceOutput
+            yield SentenceOutput(
+                display_text=display_text,
+                tts_text=response_text,
+                actions=Actions()
+            )
+            
+        except Exception as e:
+            logger.error(f"处理聊天请求时出错: {str(e)}")
+            error_msg = f"抱歉，处理您的请求时出现了问题: {str(e)}"
+            yield SentenceOutput(
+                display_text=DisplayText(text=error_msg, name="天气助手"),
+                tts_text=error_msg,
+                actions=Actions()
+            )
 
-        self.memory.append({"role": "assistant", "content": answer})
+    def _detect_weather_intent(self, text: str) -> tuple[bool, Optional[str]]:
+        """
+        检测文本中是否包含天气查询意图
         
-        # 创建显示文本对象
-        display_text = DisplayText(text=answer, name="天气助手")
+        Args:
+            text: 用户输入文本
+            
+        Returns:
+            (是否是天气查询, 地点名称)
+        """
+        # 简单的正则表达式匹配天气查询意图
+        weather_patterns = [
+            r'(.*?)(?:的|在|at|in)\s*(.+?)(?:的|)\s*(?:天气|weather)(?:怎么样|如何|情况|forecast|report|condition)',
+            r'(.+?)(?:今天|today|现在|now|当前|current)(?:的|)\s*(?:天气|weather)',
+            r'(?:天气|weather)(?:怎么样|如何|情况|forecast|report|condition)(?:.*?)(?:在|at|in)\s*(.+)'
+        ]
         
-        # 返回SentenceOutput
-        yield SentenceOutput(
-            display_text=display_text,
-            tts_text=answer,
-            actions=Actions()
-        )
+        for pattern in weather_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                # 提取地点名称
+                groups = match.groups()
+                location = next((g for g in groups if g and len(g.strip()) > 0), None)
+                if location:
+                    return True, location.strip()
         
-    except Exception as e:
-        logger.error(f"处理聊天请求时出错: {str(e)}")
-        error_msg = f"抱歉，处理您的请求时出现了问题: {str(e)}"
-        yield SentenceOutput(
-            display_text=DisplayText(text=error_msg, name="天气助手"),
-            tts_text=error_msg,
-            actions=Actions()
-        )
+        return False, None
 
     def handle_interrupt(self, heard_response: str) -> None:
         """
@@ -148,7 +151,7 @@ class WeatherAgent(AgentInterface):
         """
         if self.memory and self.memory[-1]["role"] == "assistant":
             self.memory[-1]["content"] = heard_response + "..."
-        self.memory.append({"role": "system", "content": "[用户打断了对话]"})  
+        self.memory.append({"role": "system", "content": "[用户打断了对话]"})
         logger.info("用户中断了对话，已更新对话记录")
 
     def set_memory_from_history(self, conf_uid: str, history_uid: str) -> None:
