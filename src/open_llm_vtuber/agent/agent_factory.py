@@ -100,9 +100,9 @@ class AgentFactory:
                 idle_timeout=settings.get("idle_timeout", 15),
             )
 
-        elif conversation_agent_choice == "weather_agent":
+        elif conversation_agent_choice == "travel_agent":
             # 获取天气代理设置
-            weather_settings = agent_settings.get("weather_agent", {})
+            weather_settings = agent_settings.get("travel_agent", {})
             
             # 获取LLM提供者
             llm_provider = weather_settings.get("llm_provider")
