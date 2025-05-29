@@ -5,6 +5,7 @@ from .agents.agent_interface import AgentInterface
 from .agents.basic_memory_agent import BasicMemoryAgent
 from .stateless_llm_factory import LLMFactory as StatelessLLMFactory
 from .agents.hume_ai import HumeAIAgent
+from .agents.weather_agent import WeatherAgent
 
 
 class AgentFactory:
@@ -97,6 +98,34 @@ class AgentFactory:
                 host=settings.get("host", "api.hume.ai"),
                 config_id=settings.get("config_id"),
                 idle_timeout=settings.get("idle_timeout", 15),
+            )
+
+        elif conversation_agent_choice == "weather_agent":
+            # 获取天气代理设置
+            weather_settings = agent_settings.get("weather_agent", {})
+            
+            # 获取LLM提供者
+            llm_provider = weather_settings.get("llm_provider")
+            if not llm_provider:
+                raise ValueError("LLM provider not specified for weather agent")
+            
+            # 获取LLM配置
+            llm_config = llm_configs.get(llm_provider)
+            if not llm_config:
+                raise ValueError(f"Configuration not found for LLM provider: {llm_provider}")
+            
+            # 创建无状态LLM
+            llm = StatelessLLMFactory.create_llm(
+                llm_provider=llm_provider, 
+                system_prompt=system_prompt, 
+                **llm_config
+            )
+            
+            # 创建天气代理
+            return WeatherAgent(
+                llm=llm,
+                system_prompt=system_prompt,
+                api_key=weather_settings.get("api_key")
             )
 
         else:

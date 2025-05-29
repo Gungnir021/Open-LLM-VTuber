@@ -2,10 +2,22 @@ import os
 import json
 import requests
 from datetime import datetime, timedelta
+from typing import Dict, List, Union, Optional
+from loguru import logger
 
-AMAP_API_KEY = "ee170d9927962ec572636358acd61d53"
+# 建议将API密钥放在环境变量中或配置文件中读取
+AMAP_API_KEY = os.environ.get("AMAP_API_KEY", "ee170d9927962ec572636358acd61d53")
 
-def get_location_adcode(location: str):
+def get_location_adcode(location: str) -> Optional[str]:
+    """
+    通过高德地图API获取地点的行政区划编码
+    
+    Args:
+        location: 地点名称，如"北京"、"上海市"
+        
+    Returns:
+        行政区划编码或None（如果查询失败）
+    """
     geo_url = f"https://restapi.amap.com/v3/geocode/geo?key={AMAP_API_KEY}&address={location}"
     try:
         response = requests.get(geo_url, timeout=5)
@@ -13,14 +25,26 @@ def get_location_adcode(location: str):
         data = response.json()
         if data["status"] == "1" and data["geocodes"]:
             return data["geocodes"][0]["adcode"]
+        logger.warning(f"无法找到地点 '{location}' 的行政区划编码")
         return None
-    except:
+    except Exception as e:
+        logger.error(f"获取地点编码时出错: {str(e)}")
         return None
 
-def get_current_temperature(location: str, unit: str = "celsius"):
+def get_current_temperature(location: str, unit: str = "celsius") -> Dict:
+    """
+    获取指定地点的当前天气信息
+    
+    Args:
+        location: 地点名称，如"北京"、"上海市"
+        unit: 温度单位，"celsius"（摄氏度）或"fahrenheit"（华氏度）
+        
+    Returns:
+        包含天气信息的字典
+    """
     adcode = get_location_adcode(location)
     if not adcode:
-        return {"error": f"Location '{location}' not found or failed to get adcode."}
+        return {"error": f"找不到地点 '{location}' 或无法获取行政区划编码"}
 
     weather_url = f"https://restapi.amap.com/v3/weather/weatherInfo?key={AMAP_API_KEY}&city={adcode}&extensions=base"
     try:
@@ -40,14 +64,27 @@ def get_current_temperature(location: str, unit: str = "celsius"):
                 "unit": unit,
                 "report_time": live_weather.get("reporttime")
             }
-        return {"error": "Weather data unavailable."}
-    except:
-        return {"error": "API request failed"}
+        logger.warning(f"无法获取 '{location}' 的天气数据")
+        return {"error": "天气数据不可用"}
+    except Exception as e:
+        logger.error(f"天气API请求失败: {str(e)}")
+        return {"error": "API请求失败"}
 
-def get_temperature_date(location: str, date: str, unit: str = "celsius"):
+def get_temperature_date(location: str, date: str, unit: str = "celsius") -> Union[Dict, List[Dict]]:
+    """
+    获取指定地点和日期的天气预报
+    
+    Args:
+        location: 地点名称，如"北京"、"上海市"
+        date: 日期，可以是YYYY-MM-DD格式，也可以是"明天"或"未来X天"
+        unit: 温度单位，"celsius"（摄氏度）或"fahrenheit"（华氏度）
+        
+    Returns:
+        包含天气预报的字典或字典列表
+    """
     adcode = get_location_adcode(location)
     if not adcode:
-        return {"error": f"Location '{location}' not found or failed to get adcode."}
+        return {"error": f"找不到地点 '{location}' 或无法获取行政区划编码"}
 
     forecast_url = f"https://restapi.amap.com/v3/weather/weatherInfo?key={AMAP_API_KEY}&city={adcode}&extensions=all"
     dates_to_query = []
@@ -57,14 +94,16 @@ def get_temperature_date(location: str, date: str, unit: str = "celsius"):
         dates_to_query.append((today + timedelta(days=1)).strftime("%Y-%m-%d"))
     elif date.startswith("未来"):
         num_days = 2 if "两" in date else int("".join([c for c in date if c.isdigit()]) or 0)
+        if num_days <= 0:
+            return {"error": f"无效的日期格式: {date}"}
         for i in range(1, min(num_days, 7) + 1):
             dates_to_query.append((today + timedelta(days=i)).strftime("%Y-%m-%d"))
     else:
         try:
             datetime.strptime(date, "%Y-%m-%d")
             dates_to_query.append(date)
-        except:
-            return {"error": f"Invalid date format: {date}"}
+        except ValueError:
+            return {"error": f"无效的日期格式: {date}，请使用YYYY-MM-DD格式、'明天'或'未来X天'"}
 
     try:
         response = requests.get(forecast_url, timeout=10)
@@ -94,8 +133,10 @@ def get_temperature_date(location: str, date: str, unit: str = "celsius"):
                         "night_wind_power": forecast.get("nightpower"),
                     })
                 else:
-                    results.append({"date": qd, "error": "No forecast data found."})
+                    results.append({"date": qd, "error": "未找到预报数据"})
             return results[0] if len(results) == 1 else results
-        return {"error": "Forecast data unavailable."}
-    except:
-        return {"error": "API request failed"}
+        logger.warning(f"无法获取 '{location}' 的预报数据")
+        return {"error": "预报数据不可用"}
+    except Exception as e:
+        logger.error(f"天气API请求失败: {str(e)}")
+        return {"error": "API请求失败"}

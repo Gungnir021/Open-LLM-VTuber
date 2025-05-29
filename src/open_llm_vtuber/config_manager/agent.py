@@ -130,8 +130,34 @@ class HumeAIConfig(I18nMixin, BaseModel):
             zh="空闲超时断开连接的秒数（默认：15）",
         ),
     }
+class WeatherAgentConfig(I18nMixin, BaseModel):
+    """Configuration for the Weather agent."""
 
+    llm_provider: Literal[
+        "openai_compatible_llm",
+        "claude_llm",
+        "llama_cpp_llm",
+        "ollama_llm",
+        "openai_llm",
+        "gemini_llm",
+        "zhipu_llm",
+        "deepseek_llm",
+        "groq_llm",
+        "mistral_llm",
+    ] = Field(..., alias="llm_provider")
+    
+    api_key: Optional[str] = Field(None, alias="api_key")
 
+    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
+        "llm_provider": Description(
+            en="LLM provider to use for this agent",
+            zh="Weather Agent 智能体使用的大语言模型选项",
+        ),
+        "api_key": Description(
+            en="API key for AMAP weather service (optional)",
+            zh="高德地图天气服务的API密钥（可选）",
+        ),
+    }
 class AgentSettings(I18nMixin, BaseModel):
     """Settings for different types of agents."""
 
@@ -140,6 +166,7 @@ class AgentSettings(I18nMixin, BaseModel):
     )
     mem0_agent: Optional[Mem0Config] = Field(None, alias="mem0_agent")
     hume_ai_agent: Optional[HumeAIConfig] = Field(None, alias="hume_ai_agent")
+    weather_agent: Optional[WeatherAgentConfig] = Field(None, alias="weather_agent")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "basic_memory_agent": Description(
@@ -149,6 +176,9 @@ class AgentSettings(I18nMixin, BaseModel):
         "hume_ai_agent": Description(
             en="Configuration for Hume AI agent", zh="Hume AI 代理配置"
         ),
+        "weather_agent": Description(
+            en="Configuration for Weather agent", zh="天气代理配置"
+        ),
     }
 
 
@@ -156,7 +186,7 @@ class AgentConfig(I18nMixin, BaseModel):
     """This class contains all of the configurations related to agent."""
 
     conversation_agent_choice: Literal[
-        "basic_memory_agent", "mem0_agent", "hume_ai_agent"
+        "basic_memory_agent", "mem0_agent", "hume_ai_agent", "weather_agent"
     ] = Field(..., alias="conversation_agent_choice")
     agent_settings: AgentSettings = Field(..., alias="agent_settings")
     llm_configs: StatelessLLMConfigs = Field(..., alias="llm_configs")
