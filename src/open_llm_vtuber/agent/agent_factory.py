@@ -108,7 +108,7 @@ class AgentFactory:
             api_key = travel_settings.get("api_key")
             persona_prompt = travel_settings.get("persona_prompt", "You are a helpful travel assistant.")
             
-            llm = StatelessLLMFactory.get_llm(llm_provider, **llm_settings)
+            llm = StatelessLLMFactory.create_llm(llm_provider, **llm_settings)
             
             return TravelAgent(
                 llm=llm, 
