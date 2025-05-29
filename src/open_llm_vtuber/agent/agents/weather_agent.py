@@ -45,26 +45,88 @@ class WeatherAgent(AgentInterface):
         logger.info("WeatherAgent初始化完成，系统提示词已设置")
 
     async def chat(self, input_data: BatchInput) -> AsyncIterator[SentenceOutput]:
-        """
-        与天气代理聊天，处理用户输入并返回响应
-        
-        Args:
-            input_data: 用户输入数据
-            
-        Yields:
-            SentenceOutput: 代理的响应
-        """
         # 合并所有文本输入
         user_text = "\n".join([t.content for t in input_data.texts])
         self.memory.append({"role": "user", "content": user_text})
-
+    
+        # 简单的意图检测
+        location = None
+        is_future = False
+        date = None
+        
+        # 检测是否包含地名和天气关键词
+        if "天气" in user_text:
+            # 简单地提取可能的地名（这里只是示例，实际应用中可能需要更复杂的NLP）
+            for city in ["北京", "上海", "广州", "深圳", "杭州"]:
+                if city in user_text:
+                    location = city
+                    break
+            
+            # 检测是否询问未来天气
+            future_keywords = ["明天", "后天", "未来", "预报"]
+            for keyword in future_keywords:
+                if keyword in user_text:
+                    is_future = True
+                    date = keyword
+                    break
+        
+        # 如果检测到地名和天气关键词，调用天气API
+        if location:
+            try:
+                self.tool_call_count += 1
+                self.last_tool_call_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                if is_future:
+                    self.last_tool_name = "get_temperature_date"
+                    self.last_tool_args = {"location": location, "date": date}
+                    weather_data = get_temperature_date(location=location, date=date)
+                else:
+                    self.last_tool_name = "get_current_temperature"
+                    self.last_tool_args = {"location": location}
+                    weather_data = get_current_temperature(location=location)
+                
+                # 将天气数据添加到对话记忆中
+                self.memory.append({
+                    "role": "system",
+                    "content": f"天气数据: {json.dumps(weather_data, ensure_ascii=False)}"
+                })
+                
+                # 调用LLM生成回复
+                response = await self.llm.chat_completion(messages=self.memory)
+                answer = response.get("message", {}).get("content", "")
+                
+                # 添加验证信息
+                verification_info = f"\n\n[系统信息: 已成功调用天气API，工具名称: {self.last_tool_name}, 调用时间: {self.last_tool_call_time}]"
+                answer += verification_info
+                
+            except Exception as e:
+                logger.error(f"天气API调用失败: {str(e)}")
+                answer = f"抱歉，我在获取{location}的天气信息时遇到了问题: {str(e)}"
+        else:
+            # 如果没有检测到天气相关意图，直接调用LLM
+            response = await self.llm.chat_completion(messages=self.memory)
+            answer = response.get("message", {}).get("content", "")
+        
+        self.memory.append({"role": "assistant", "content": answer})
+        
+        # 创建显示文本对象
+        display_text = DisplayText(text=answer, name="天气助手")
+        
+        # 返回SentenceOutput（注意不要使用sentence参数）
+        yield SentenceOutput(
+            display_text=display_text,
+            tts_text=answer,
+            actions=Actions()
+        )
+        
         messages = self.memory.copy()
         logger.debug(f"发送消息到LLM: {len(messages)}条消息")
         logger.info(f"当前工具调用次数: {self.tool_call_count}")
 
         # 第一次调用：检查是否应该使用工具
         try:
-            first_response = await self.llm.chat_completion(messages=messages, tools=self.tools())
+            # 修改这里，移除tools参数
+            first_response = await self.llm.chat_completion(messages=messages)
             response_message = first_response.get("message", {})
             tool_calls = response_message.get("tool_calls", [])
 
@@ -110,9 +172,9 @@ class WeatherAgent(AgentInterface):
             display_text = DisplayText(text=answer, name="天气助手")
             
             # 返回SentenceOutput
+            # 在yield SentenceOutput时移除sentence参数
             yield SentenceOutput(
                 display_text=display_text,
-                sentence=answer,  # 兼容旧版本
                 tts_text=answer,
                 actions=Actions()
             )
@@ -120,9 +182,9 @@ class WeatherAgent(AgentInterface):
         except Exception as e:
             logger.error(f"处理聊天请求时出错: {str(e)}")
             error_msg = f"抱歉，处理您的请求时出现了问题: {str(e)}"
+            # 在这里也移除sentence参数
             yield SentenceOutput(
                 display_text=DisplayText(text=error_msg, name="天气助手"),
-                sentence=error_msg,
                 tts_text=error_msg,
                 actions=Actions()
             )
