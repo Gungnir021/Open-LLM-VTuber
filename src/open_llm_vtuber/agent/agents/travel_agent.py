@@ -2,7 +2,7 @@ from typing import AsyncIterator, Dict, Any, List, Optional, Union
 import json
 import re
 from loguru import logger
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .agent_interface import AgentInterface
 from ..input_types import BatchInput
@@ -53,9 +53,9 @@ class TravelAgent(AgentInterface):
         
         # 如果提供了API密钥，设置到天气和交通工具中
         if api_key:
+            global AMAP_API_KEY, TRAFFIC_AMAP_API_KEY
             from .tools.get_weather import AMAP_API_KEY
             from .tools.get_traffic import AMAP_API_KEY as TRAFFIC_AMAP_API_KEY
-            global AMAP_API_KEY, TRAFFIC_AMAP_API_KEY
             AMAP_API_KEY = api_key
             TRAFFIC_AMAP_API_KEY = api_key
             
