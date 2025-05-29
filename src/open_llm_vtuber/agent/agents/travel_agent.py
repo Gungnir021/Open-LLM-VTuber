@@ -6,7 +6,7 @@ from datetime import datetime
 
 from .agent_interface import AgentInterface
 from ..input_types import BatchInput
-from ..output_types import SentenceOutput, DisplayText, Actions
+from ..output_types import SentenceOutput, DisplayText, Actions, SentenceWithTags
 from ..stateless_llm.stateless_llm_interface import StatelessLLMInterface
 from .tools.get_weather import get_current_temperature, get_temperature_date
 from .tools.get_traffic import get_traffic_status, get_route_traffic
@@ -22,7 +22,7 @@ class TravelAgent(AgentInterface):
     该代理使用高德地图API获取天气数据和交通状况，支持查询当前天气、未来天气预报、区域交通状况和路线交通状况
     """
     
-    def __init__(self, llm: StatelessLLMInterface, system_prompt: str, api_key: str = None):
+    def __init__(self, llm: StatelessLLMInterface, system_prompt: str, api_key: str = None, tts_preprocessor_config: TTSPreprocessorConfig = None):
         """
         初始化旅行助手代理
         
@@ -30,9 +30,11 @@ class TravelAgent(AgentInterface):
             llm: 无状态LLM接口实例
             system_prompt: 系统提示词
             api_key: 可选的高德地图API密钥，如果提供则覆盖默认值
+            tts_preprocessor_config: TTS预处理器配置
         """
         self.llm = llm
         self.system_prompt = system_prompt
+        self._tts_preprocessor_config = tts_preprocessor_config
         self.memory = [
             {"role": "system", "content": self.system_prompt}
         ]
@@ -50,7 +52,8 @@ class TravelAgent(AgentInterface):
             
         logger.info("TravelAgent初始化完成，系统提示词已设置")
 
-    async def chat(self, input_data: BatchInput) -> AsyncIterator[SentenceOutput]:
+    @tts_filter()
+    async def chat(self, input_data: BatchInput) -> AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions]]:
         # 合并所有文本输入
         user_text = "\n".join([t.content for t in input_data.texts])
         self.memory.append({"role": "user", "content": user_text})
@@ -160,24 +163,19 @@ class TravelAgent(AgentInterface):
             # 将回答添加到记忆中
             self.memory.append({"role": "assistant", "content": response_text})
             
-            # 创建显示文本对象
+            # 创建显示文本对象和句子对象
             display_text = DisplayText(text=response_text, name="旅行助手")
+            sentence = SentenceWithTags(text=response_text, tags=[])
             
-            # 返回SentenceOutput
-            yield SentenceOutput(
-                display_text=display_text,
-                tts_text=response_text,
-                actions=Actions()
-            )
+            # 返回元组格式以配合tts_filter装饰器
+            yield sentence, display_text, Actions()
             
         except Exception as e:
             logger.error(f"处理聊天请求时出错: {str(e)}")
             error_msg = f"抱歉，处理您的请求时出现了问题: {str(e)}"
-            yield SentenceOutput(
-                display_text=DisplayText(text=error_msg, name="旅行助手"),
-                tts_text=error_msg,
-                actions=Actions()
-            )
+            display_text = DisplayText(text=error_msg, name="旅行助手")
+            sentence = SentenceWithTags(text=error_msg, tags=[])
+            yield sentence, display_text, Actions()
 
     def _detect_weather_intent(self, text: str) -> tuple[bool, Optional[str]]:
         """

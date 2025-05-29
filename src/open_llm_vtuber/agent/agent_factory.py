@@ -100,31 +100,21 @@ class AgentFactory:
             )
 
         elif conversation_agent_choice == "travel_agent":
-            # 获取代理设置
             travel_settings = agent_settings.get("travel_agent", {})
-            
-            # 获取LLM提供者
             llm_provider = travel_settings.get("llm_provider")
-            if not llm_provider:
-                raise ValueError("LLM provider not specified for travel agent")
+            if llm_provider is None:
+                raise ValueError("travel_agent requires llm_provider to be set")
             
-            # 获取LLM配置
-            llm_config = llm_configs.get(llm_provider)
-            if not llm_config:
-                raise ValueError(f"Configuration not found for LLM provider: {llm_provider}")
+            api_key = travel_settings.get("api_key")
+            persona_prompt = travel_settings.get("persona_prompt", "You are a helpful travel assistant.")
             
-            # 创建无状态LLM
-            llm = StatelessLLMFactory.create_llm(
-                llm_provider=llm_provider, 
-                system_prompt=system_prompt, 
-                **llm_config
-            )
+            llm = StatelessLLMFactory.get_llm(llm_provider, **llm_settings)
             
-            # 创建旅游代理
             return TravelAgent(
-                llm=llm,
-                system_prompt=system_prompt,
-                api_key=travel_settings.get("api_key")
+                llm=llm, 
+                system_prompt=persona_prompt, 
+                api_key=api_key,
+                tts_preprocessor_config=tts_preprocessor_config  # 添加这一行
             )
 
         else:
