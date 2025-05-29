@@ -1,8 +1,4 @@
-"""Description: This file contains the implementation of the `AsyncLLM` class.
-This class is responsible for handling asynchronous interaction with OpenAI API compatible
-endpoints for language generation.
-"""
-
+import json
 from typing import AsyncIterator, List, Dict, Any
 from openai import (
     AsyncStream,

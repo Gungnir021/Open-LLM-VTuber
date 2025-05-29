@@ -110,12 +110,12 @@
 
 ---
 
-## 3. function calling设计
+## 3. function calling
 
-制作tools时，需要修改：
-
-- `src-agent-agents-tools` 写一个agent
-- `config_manager`
+- 需要修改 `src/open_llm_vtuber` 文件夹下的
+    - `agent/agents` 写一个 agent
+    - `agent/agents/tools` 写工具
+    - `config_manager/agent.py` 添加一个 agent 类，修改 AgentSettings 和 AgentConfig 类
 
 旅游一体化设计，包含前中后三个过程的功能服务
 
