@@ -117,6 +117,28 @@ class AgentFactory:
             
             llm = StatelessLLMFactory.create_llm(llm_provider, **llm_config)
             
+            # Create a default tts_preprocessor_config if None is provided
+            if tts_preprocessor_config is None:
+                from ..config_manager.tts_preprocessor import TTSPreprocessorConfig, TranslatorConfig
+                
+                # Create default translator config
+                default_translator_config = TranslatorConfig(
+                    translate_audio=False,
+                    translate_provider="deeplx",
+                    deeplx=None,
+                    tencent=None
+                )
+                
+                # Create default TTS preprocessor config
+                tts_preprocessor_config = TTSPreprocessorConfig(
+                    remove_special_char=True,
+                    ignore_brackets=True,
+                    ignore_parentheses=True,
+                    ignore_asterisks=True,
+                    ignore_angle_brackets=True,
+                    translator_config=default_translator_config
+                )
+            
             return TravelAgent(
                 llm=llm, 
                 system_prompt=persona_prompt, 
