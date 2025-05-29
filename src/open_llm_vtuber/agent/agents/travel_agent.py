@@ -10,6 +10,10 @@ from ..output_types import SentenceOutput, DisplayText, Actions
 from ..stateless_llm.stateless_llm_interface import StatelessLLMInterface
 from .tools.get_weather import get_current_temperature, get_temperature_date
 from .tools.get_traffic import get_traffic_status, get_route_traffic
+from .tools.user_profile import UserProfileManager
+from .tools.trip_planner import generate_travel_itinerary, generate_packing_list
+from .tools.location_services import find_nearby_facilities, get_scenic_spot_info
+from .tools.image_analysis import analyze_travel_photo, generate_social_media_post
 
 class TravelAgent(AgentInterface):
     """
@@ -36,6 +40,7 @@ class TravelAgent(AgentInterface):
         self.last_tool_call_time = None  # 最后一次工具调用时间
         self.last_tool_name = None  # 最后一次调用的工具名称
         self.last_tool_args = None  # 最后一次调用的工具参数
+        self.user_manager = UserProfileManager()
         
         # 如果提供了API密钥，可以在这里设置
         # if api_key:
@@ -302,6 +307,18 @@ class TravelAgent(AgentInterface):
                 return get_traffic_status(**arguments)
             elif name == "get_route_traffic":
                 return get_route_traffic(**arguments)
+            elif name == "collect_user_info":
+                return self.user_manager.collect_user_info(**arguments)
+            elif name == "generate_travel_itinerary":
+                return generate_travel_itinerary(**arguments)
+            elif name == "generate_packing_list":
+                return generate_packing_list(**arguments)
+            elif name == "find_nearby_facilities":
+                return find_nearby_facilities(**arguments)
+            elif name == "get_scenic_spot_info":
+                return get_scenic_spot_info(**arguments)
+            elif name == "generate_social_media_post":
+                return generate_social_media_post(**arguments)
             return {"error": f"未知工具: {name}"}
         except Exception as e:
             logger.error(f"工具调用失败: {str(e)}")
