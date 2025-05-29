@@ -105,16 +105,23 @@ class AgentFactory:
             if llm_provider is None:
                 raise ValueError("travel_agent requires llm_provider to be set")
             
+            # Get the LLM config for this provider
+            llm_config: dict = llm_configs.get(llm_provider)
+            if not llm_config:
+                raise ValueError(
+                    f"Configuration not found for LLM provider: {llm_provider}"
+                )
+            
             api_key = travel_settings.get("api_key")
             persona_prompt = travel_settings.get("persona_prompt", "You are a helpful travel assistant.")
             
-            llm = StatelessLLMFactory.create_llm(llm_provider, **llm_settings)
+            llm = StatelessLLMFactory.create_llm(llm_provider, **llm_config)
             
             return TravelAgent(
                 llm=llm, 
                 system_prompt=persona_prompt, 
                 api_key=api_key,
-                tts_preprocessor_config=tts_preprocessor_config  # 添加这一行
+                tts_preprocessor_config=tts_preprocessor_config
             )
 
         else:
