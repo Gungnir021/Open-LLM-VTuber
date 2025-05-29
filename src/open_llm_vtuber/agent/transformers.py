@@ -120,7 +120,29 @@ def tts_filter(
         @wraps(func)
         async def wrapper(*args, **kwargs) -> AsyncIterator[SentenceOutput]:
             sentence_stream = func(*args, **kwargs)
-            config = tts_preprocessor_config or TTSPreprocessorConfig()
+            # 修改这一行，确保创建TTSPreprocessorConfig时提供所有必需的字段
+            if tts_preprocessor_config is None:
+                from ..config_manager.tts_preprocessor import TTSPreprocessorConfig, TranslatorConfig
+                
+                # 创建默认的translator_config
+                default_translator_config = TranslatorConfig(
+                    translate_audio=False,
+                    translate_provider="deeplx",
+                    deeplx=None,
+                    tencent=None
+                )
+                
+                # 创建默认的TTS预处理器配置
+                config = TTSPreprocessorConfig(
+                    remove_special_char=True,
+                    ignore_brackets=True,
+                    ignore_parentheses=True,
+                    ignore_asterisks=True,
+                    ignore_angle_brackets=True,
+                    translator_config=default_translator_config
+                )
+            else:
+                config = tts_preprocessor_config
 
             async for sentence, display, actions in sentence_stream:
                 if any(tag.name == "think" for tag in sentence.tags):
