@@ -6,7 +6,8 @@ from datetime import datetime
 
 from .agent_interface import AgentInterface
 from ..input_types import BatchInput
-from ..output_types import SentenceOutput, DisplayText, Actions, SentenceWithTags
+from ..output_types import SentenceOutput, DisplayText, Actions
+from ...utils.sentence_divider import SentenceWithTags
 from ..stateless_llm.stateless_llm_interface import StatelessLLMInterface
 from .tools.get_weather import get_current_temperature, get_temperature_date
 from .tools.get_traffic import get_traffic_status, get_route_traffic
