@@ -1,6 +1,8 @@
 from typing import AsyncIterator, Dict, Any, List
 import json
 from loguru import logger
+import time
+from datetime import datetime
 
 from .agent_interface import AgentInterface
 from ..input_types import BatchInput
@@ -29,12 +31,16 @@ class WeatherAgent(AgentInterface):
         self.memory = [
             {"role": "system", "content": self.system_prompt}
         ]
+        self.tool_call_count = 0  # 添加工具调用计数器
+        self.last_tool_call_time = None  # 添加最后一次工具调用时间
+        self.last_tool_name = None  # 添加最后一次调用的工具名称
+        self.last_tool_args = None  # 添加最后一次调用的工具参数
         
         # 如果提供了API密钥，可以在这里设置
-        if api_key:
-            from .tools.get_weather import AMAP_API_KEY
-            global AMAP_API_KEY
-            AMAP_API_KEY = api_key
+        # if api_key:
+        #     from .tools.get_weather import AMAP_API_KEY
+        #     global AMAP_API_KEY
+        #     AMAP_API_KEY = api_key
             
         logger.info("WeatherAgent初始化完成，系统提示词已设置")
 
@@ -54,6 +60,7 @@ class WeatherAgent(AgentInterface):
 
         messages = self.memory.copy()
         logger.debug(f"发送消息到LLM: {len(messages)}条消息")
+        logger.info(f"当前工具调用次数: {self.tool_call_count}")
 
         # 第一次调用：检查是否应该使用工具
         try:
@@ -62,7 +69,7 @@ class WeatherAgent(AgentInterface):
             tool_calls = response_message.get("tool_calls", [])
 
             if tool_calls:
-                logger.info(f"LLM决定使用工具: {len(tool_calls)}个工具调用")
+                logger.info(f"检测到{len(tool_calls)}个工具调用")
                 self.memory.append(response_message)
                 
                 # 处理每个工具调用
@@ -70,7 +77,13 @@ class WeatherAgent(AgentInterface):
                     function_name = tool_call['function']['name']
                     function_args = json.loads(tool_call['function']['arguments'])
                     
-                    logger.info(f"调用工具: {function_name} 参数: {function_args}")
+                    # 记录工具调用信息
+                    self.tool_call_count += 1
+                    self.last_tool_call_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    self.last_tool_name = function_name
+                    self.last_tool_args = function_args
+                    
+                    logger.info(f"调用工具: {function_name}, 参数: {function_args}, 时间: {self.last_tool_call_time}")
                     tool_result = self.call_tool(function_name, function_args)
                     
                     self.memory.append({
@@ -82,6 +95,11 @@ class WeatherAgent(AgentInterface):
                 # 第二次调用：返回最终答案
                 second_response = await self.llm.chat_completion(messages=self.memory)
                 answer = second_response.get("message", {}).get("content", "")
+                
+                # 添加验证信息到回答中
+                verification_info = f"\n\n[系统信息: 已成功调用天气API，工具名称: {self.last_tool_name}, 调用时间: {self.last_tool_call_time}]"
+                logger.info(f"已添加天气API调用验证信息到回答中")
+                answer += verification_info
             else:
                 logger.info("LLM直接回答，不使用工具")
                 answer = response_message.get("content", "")
