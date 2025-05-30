@@ -24,7 +24,7 @@ class PackingHandler(BaseHandler):
         detector = PackingIntentDetector()
         params = detector.extract_params(text)
         
-        if not params.get("destination") or not params.get("duration"):
+        if not params.get("destination") or not params.get("travel_dates"):
             return "抱歉，我无法确定您的目的地或行程天数。请提供完整的行程信息以生成行李清单。"
         
         # 获取用户偏好信息
