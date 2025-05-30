@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any
 
 from ..utils.memory_manager import MemoryManager
 from ..utils.tool_caller import ToolCaller
-from ..stateless_llm.stateless_llm_interface import StatelessLLMInterface
+from ...stateless_llm.stateless_llm_interface import StatelessLLMInterface
 from ..tools.user_profile import UserProfileManager
 
 class BaseHandler(ABC):

@@ -10,7 +10,7 @@ from .social_media_handler import SocialMediaHandler
 from .user_info_handler import UserInfoHandler
 from .scenic_info_handler import ScenicInfoHandler
 from .image_analysis_handler import ImageAnalysisHandler
-from ..stateless_llm.stateless_llm_interface import StatelessLLMInterface
+from ...stateless_llm.stateless_llm_interface import StatelessLLMInterface
 from ..utils.memory_manager import MemoryManager
 from ..utils.tool_caller import ToolCaller
 from ..tools.user_profile import UserProfileManager
