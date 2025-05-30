@@ -40,8 +40,17 @@ class PackingHandler(BaseHandler):
             call_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         )
         
+        # 获取天气信息
+        from ..tools.get_weather import get_temperature_date
+        weather_info = get_temperature_date(params["destination"], params["travel_dates"]["start_date"])
+        
         # 调用行李清单生成API
-        packing_result = self.tool_caller.call_tool("generate_packing_list", params)
+        packing_result = self.tool_caller.call_tool("generate_packing_list", {
+            "destination": params["destination"],
+            "travel_dates": [params["travel_dates"]["start_date"], params["travel_dates"]["end_date"]],
+            "weather_info": weather_info,
+            "user_style": params.get("travel_style", "休闲")
+        })
         
         # 将工具结果添加到记忆中
         self.memory_manager.add_tool_result("generate_packing_list", packing_result)

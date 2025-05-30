@@ -46,7 +46,8 @@ class PackingIntentDetector(BaseIntentDetector):
         destination_patterns = [
             r'(?:去|to|前往|visit)\s*(.+?)\s*(?:旅游|旅行|玩|游玩|travel|trip|tour)',
             r'(?:去|to|前往|visit)\s*(.+?)\s*(?:需要|should|必须|must|要|have to)\s*(?:带|pack|准备|prepare)',
-            r'(?:在|at|in)\s*(.+?)\s*(?:的|)(?:出行|旅行|旅游|trip|travel)'
+            r'(?:在|at|in)\s*(.+?)\s*(?:的|)(?:出行|旅行|旅游|trip|travel)',
+            r'(?:规划|plan)\s*(?:一下|)\s*(?:去|to|)\s*(.+?)\s*(?:\d+|几|)\s*(?:天|日|days)\s*(?:旅游|旅行|玩|游玩|travel|trip|tour)'
         ]
         
         for pattern in destination_patterns:
