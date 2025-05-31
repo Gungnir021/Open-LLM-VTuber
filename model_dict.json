@@ -158,5 +158,18 @@
                 "": 1
             }
         }
-    }
+    },
+    {
+    "name": "rabbit",
+    "description": "cute rabbit",
+    "url": "/live2d-models/rabbit/rabbit.model3.json",
+    "kScale": 0.5,
+    "initialXshift": 0,
+    "initialYshift": 0,
+    "emotionMap": {
+
+        }
+}
+
+
 ]
