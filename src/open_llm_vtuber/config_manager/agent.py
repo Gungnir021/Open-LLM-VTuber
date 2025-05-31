@@ -130,6 +130,7 @@ class HumeAIConfig(I18nMixin, BaseModel):
             zh="空闲超时断开连接的秒数（默认：15）",
         ),
     }
+
 class TravelAgentConfig(I18nMixin, BaseModel):
     """Configuration for the Travel agent."""
 
@@ -146,18 +147,13 @@ class TravelAgentConfig(I18nMixin, BaseModel):
         "mistral_llm",
     ] = Field(..., alias="llm_provider")
     
-    api_key: Optional[str] = Field(None, alias="api_key")
-
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "llm_provider": Description(
             en="LLM provider to use for this agent",
             zh="Travel Agent 智能体使用的大语言模型选项",
         ),
-        "api_key": Description(
-            en="API key for AMAP service (optional)",
-            zh="高德地图服务的API密钥（可选）",
-        ),
     }
+
 class AgentSettings(I18nMixin, BaseModel):
     """Settings for different types of agents."""
 

@@ -4,9 +4,51 @@ import requests
 from datetime import datetime, timedelta
 from typing import Dict, List, Union, Optional
 from loguru import logger
+from dotenv import load_dotenv
 
-# 建议将API密钥放在环境变量中或配置文件中读取
-AMAP_API_KEY = os.environ.get("AMAP_API_KEY", "ee170d9927962ec572636358acd61d53")
+# 加载环境变量
+load_dotenv()
+AMAP_API_KEY = os.getenv("AMAP_API_KEY", "ee170d9927962ec572636358acd61d53")
+
+def get_weather(location: str) -> str:
+    """获取城市当前天气（摄氏度）- 为 DeepSeek Function Calling 优化"""
+    try:
+        # 获取地理编码
+        geo = requests.get(
+            "https://restapi.amap.com/v3/geocode/geo",
+            params={"key": AMAP_API_KEY, "address": location},
+            timeout=5,
+        ).json()
+        
+        if not geo.get("geocodes"):
+            return json.dumps({"error": f"找不到城市: {location}"}, ensure_ascii=False)
+
+        adcode = geo["geocodes"][0]["adcode"]
+        
+        # 获取天气信息
+        weather = requests.get(
+            "https://restapi.amap.com/v3/weather/weatherInfo",
+            params={"key": AMAP_API_KEY, "city": adcode, "extensions": "base"},
+            timeout=5,
+        ).json()
+        
+        if weather.get("status") != "1" or not weather.get("lives"):
+            return json.dumps({"error": f"无法获取 {location} 天气"}, ensure_ascii=False)
+
+        live = weather["lives"][0]
+        return json.dumps({
+            "city": live["city"],
+            "weather": live["weather"],
+            "temperature": live["temperature"] + "℃",
+            "humidity": live["humidity"] + "%",
+            "windpower": live["windpower"] + "级",
+            "winddirection": live.get("winddirection", "未知"),
+            "reporttime": live.get("reporttime", "")
+        }, ensure_ascii=False)
+        
+    except Exception as e:
+        logger.error(f"天气查询出错: {str(e)}")
+        return json.dumps({"error": f"天气查询失败: {str(e)}"}, ensure_ascii=False)
 
 def get_location_adcode(location: str) -> Optional[str]:
     """
