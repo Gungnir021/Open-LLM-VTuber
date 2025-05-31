@@ -1,0 +1,10 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "rabbit.moc3",
+		"Textures": [
+			"rabbit.1024/texture_00.png"
+		],
+		"DisplayInfo": "rabbit.cdi3.json"
+	}
+}

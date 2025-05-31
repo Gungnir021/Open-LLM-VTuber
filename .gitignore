@@ -1,5 +1,5 @@
 # ignore the user configuration file
-conf.yaml
+
 
 # ignore non-default background images
 /backgrounds/*
@@ -8,7 +8,7 @@ conf.yaml
 /live2d-models/*
 !/live2d-models/mao_pro
 !/live2d-models/shizuku
-
+!/live2d-models/rabbit
 # ignore non-default character configs
 /characters/*
 # but all of the defaults are already tracked, so no need to un-ignore them
