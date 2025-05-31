@@ -1,5 +1,5 @@
 # ignore the user configuration file
-conf.yaml
+# conf.yaml
 
 # ignore non-default background images
 /backgrounds/*
