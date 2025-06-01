@@ -54,17 +54,17 @@ class InfrastructureTool(ToolBase):
                 },
                 "radius": {
                     "type": "integer",
-                    "description": "搜索半径（米），默认3000米，最大50000米",
+                    "description": "搜索半径（米），默认3000米，最大10000米",
                     "default": 3000,
                     "minimum": 100,
-                    "maximum": 50000
+                    "maximum": 10000
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "返回结果数量限制，默认10个，最大25个",
-                    "default": 10,
+                    "description": "返回结果数量限制，默认5个，最大10个",
+                    "default": 5,
                     "minimum": 1,
-                    "maximum": 25
+                    "maximum": 10
                 }
             },
             "required": ["location", "infrastructure_type"]
