@@ -18,6 +18,8 @@ from ..transformers import (
 )
 from ...config_manager import TTSPreprocessorConfig
 from .tools.get_weather import get_weather
+from .tools.tool_base import ToolManager
+from .tools.weather_tool import WeatherTool
 
 # ──────────────────── 1. 读取环境变量 ──────────────────── 
 load_dotenv()
@@ -76,9 +78,30 @@ class TravelAgent(AgentInterface):
         if system_prompt:
             self._system = system_prompt
         
+        # 初始化工具管理器
+        self._tool_manager = ToolManager()
+        self._register_tools()
+        
         # 设置聊天功能
         self.chat = self._chat_function_factory(llm.chat_completion)
         logger.info("TravelAgent initialized.")
+    
+    def _register_tools(self):
+        """注册所有工具"""
+        print("🔧 [DEBUG] 开始注册工具...")
+        
+        # 注册天气工具
+        self._tool_manager.register_tool(WeatherTool())
+        
+        # 在这里可以轻松添加更多工具
+        # self._tool_manager.register_tool(TranslationTool())
+        # self._tool_manager.register_tool(FlightSearchTool())
+        
+        print(f"🔧 [DEBUG] 工具注册完成，共注册 {len(self._tool_manager.get_all_tools())} 个工具")
+    
+    def add_tool(self, tool):
+        """动态添加工具"""
+        self._tool_manager.register_tool(tool)
 
     def _set_llm(self, llm: StatelessLLMInterface):
         """
@@ -210,27 +233,15 @@ class TravelAgent(AgentInterface):
         
         print(f"🔧 [DEBUG] 构建的消息数量: {len(messages)}")
         
+        # 获取所有工具的函数定义
+        tools = self._tool_manager.get_function_definitions()
+        print(f"🔧 [DEBUG] 可用工具数量: {len(tools)}")
+        
         # 步骤1: 首次调用获取函数调用请求
         payload = {
             "model": "deepseek-chat",
             "messages": messages,
-            "tools": [{
-                "type": "function",
-                "function": {
-                    "name": "get_weather",
-                    "description": "获取指定城市的当前天气信息",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "location": {
-                                "type": "string",
-                                "description": "城市名称，如：北京、上海、广州等"
-                            }
-                        },
-                        "required": ["location"]
-                    }
-                }
-            }],
+            "tools": tools,
             "tool_choice": "auto"  # 让 AI 自动决定是否调用工具
         }
         
@@ -261,20 +272,15 @@ class TravelAgent(AgentInterface):
             print(f"🔧 [DEBUG] 调用函数: {function_name}")
             print(f"🔧 [DEBUG] 函数参数: {function_args}")
             
-            if function_name == "get_weather":
-                print("🌤️ [DEBUG] 正在执行天气查询...")
-                weather_result = get_weather(function_args["location"])
-                print(f"🌤️ [DEBUG] 天气查询结果: {weather_result[:100]}...")
-            else:
-                print(f"❌ [DEBUG] 未知函数调用: {function_name}")
-                weather_result = json.dumps({"error": "未知函数调用"}, ensure_ascii=False)
+            # 使用工具管理器执行工具
+            tool_result = self._tool_manager.execute_tool(function_name, function_args)
             
             # 步骤3: 将函数结果返回给模型
             print("🔧 [DEBUG] 将函数结果返回给 DeepSeek 模型...")
             payload["messages"].append(response["choices"][0]["message"])
             payload["messages"].append({
                 "role": "tool",
-                "content": weather_result,
+                "content": tool_result,
                 "tool_call_id": tool_calls[0]["id"]
             })
             
