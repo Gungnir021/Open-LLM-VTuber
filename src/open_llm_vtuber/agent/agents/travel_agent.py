@@ -17,9 +17,9 @@ from ..transformers import (
     display_processor,
 )
 from ...config_manager import TTSPreprocessorConfig
-from .tools.get_weather import get_weather
 from .tools.tool_base import ToolManager
 from .tools.weather_tool import WeatherTool
+from.tools.infrastructure_tool import InfrastructureTool
 
 # ──────────────────── 1. 读取环境变量 ──────────────────── 
 load_dotenv()
@@ -39,9 +39,10 @@ class TravelAgent(AgentInterface):
     实现天气查询、旅行建议等功能
     """
 
-    _system: str = """你是一个专业的旅行助手，可以帮助用户查询天气、提供旅行建议。
-当用户询问天气时，请使用 get_weather 函数获取准确的天气信息。
-请用友好、专业的语气回复用户。"""
+    _system: str = """
+    你是一个专业的旅行助手，可以帮助用户查询天气、提供旅行建议。
+    请用友好、专业的语气回复用户。
+    """
 
     def __init__(
         self,
@@ -92,6 +93,9 @@ class TravelAgent(AgentInterface):
         
         # 注册天气工具
         self._tool_manager.register_tool(WeatherTool())
+
+        # 注册基础设施查询工具
+        self._tool_manager.register_tool(InfrastructureTool())
         
         # 在这里可以轻松添加更多工具
         # self._tool_manager.register_tool(TranslationTool())
