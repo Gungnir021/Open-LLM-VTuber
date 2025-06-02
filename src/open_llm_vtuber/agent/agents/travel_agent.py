@@ -19,7 +19,8 @@ from ..transformers import (
 from ...config_manager import TTSPreprocessorConfig
 from .tools.tool_base import ToolManager
 from .tools.weather_tool import WeatherTool
-from.tools.infrastructure_tool import InfrastructureTool
+from .tools.infrastructure_tool import InfrastructureTool
+from .tools.traffic_tool import TrafficTool
 
 # ──────────────────── 1. 读取环境变量 ──────────────────── 
 load_dotenv()
@@ -96,6 +97,9 @@ class TravelAgent(AgentInterface):
 
         # 注册基础设施查询工具
         self._tool_manager.register_tool(InfrastructureTool())
+
+        # 注册交通态势查询工具
+        self._tool_manager.register_tool(TrafficTool())
         
         # 在这里可以轻松添加更多工具
         # self._tool_manager.register_tool(TranslationTool())
