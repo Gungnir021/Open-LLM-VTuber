@@ -49,6 +49,15 @@ class IPLocationTool(ToolBase):
             if not AMAP_API_KEY:
                 return json.dumps({"error": "未配置高德地图API密钥，请在.env文件中设置AMAP_API_KEY"}, ensure_ascii=False)
             
+            # 如果没有提供IP，尝试获取公网IP
+            if not ip:
+                public_ip = self._get_public_ip()
+                if public_ip:
+                    ip = public_ip
+                    logger.info(f"自动获取到公网IP: {ip}")
+                else:
+                    logger.warning("无法获取公网IP，将使用服务器本地IP进行查询")
+            
             # 验证IP地址格式（如果提供了IP）
             if ip and not self._validate_ip(ip):
                 return json.dumps({"error": "IP地址格式错误，请提供有效的IPv4地址"}, ensure_ascii=False)
@@ -69,6 +78,31 @@ class IPLocationTool(ToolBase):
         except Exception as e:
             logger.error(f"IP定位查询出错: {str(e)}")
             return json.dumps({"error": f"IP定位查询失败: {str(e)}"}, ensure_ascii=False)
+    
+    def _get_public_ip(self) -> Optional[str]:
+        """获取服务器的公网IP地址"""
+        # 多个公网IP查询服务，提高成功率
+        ip_services = [
+            "https://api.ipify.org",
+            "https://ipinfo.io/ip",
+            "https://icanhazip.com",
+            "https://ident.me"
+        ]
+        
+        for service in ip_services:
+            try:
+                response = requests.get(service, timeout=5)
+                if response.status_code == 200:
+                    ip = response.text.strip()
+                    if self._validate_ip(ip):
+                        logger.debug(f"从 {service} 获取到公网IP: {ip}")
+                        return ip
+            except Exception as e:
+                logger.debug(f"从 {service} 获取公网IP失败: {e}")
+                continue
+        
+        logger.warning("无法从任何服务获取公网IP")
+        return None
     
     def _validate_ip(self, ip: str) -> bool:
         """验证IP地址格式"""
@@ -143,21 +177,40 @@ class IPLocationTool(ToolBase):
     def _format_location_result(self, location_data: Dict[str, Any]) -> Dict[str, Any]:
         """格式化IP定位结果"""
         try:
-            # 提取基本信息 - 确保返回字符串而不是数组
+            # 提取基本信息 - 正确处理数组和字符串格式
             province = location_data.get("province", "")
             city = location_data.get("city", "")
             adcode = location_data.get("adcode", "")
             rectangle = location_data.get("rectangle", "")
             
-            # 确保province和city是字符串类型
+            # 确保province和city是字符串类型（处理可能的数组格式）
             if isinstance(province, list):
                 province = province[0] if province else ""
+            elif not isinstance(province, str):
+                province = str(province) if province else ""
+                
             if isinstance(city, list):
                 city = city[0] if city else ""
+            elif not isinstance(city, str):
+                city = str(city) if city else ""
+            
+            # 确保adcode是字符串类型
+            if isinstance(adcode, list):
+                adcode = adcode[0] if adcode else ""
+            elif not isinstance(adcode, str):
+                adcode = str(adcode) if adcode else ""
+            
+            # 确保rectangle是字符串类型
+            if isinstance(rectangle, list):
+                rectangle = rectangle[0] if rectangle else ""
+            elif not isinstance(rectangle, str):
+                rectangle = str(rectangle) if rectangle else ""
+            
+            logger.debug(f"处理后的位置信息 - province: '{province}', city: '{city}', adcode: '{adcode}', rectangle: '{rectangle}'")
             
             # 解析矩形区域坐标
             rectangle_info = None
-            if rectangle and isinstance(rectangle, str):
+            if rectangle and isinstance(rectangle, str) and rectangle.strip():
                 try:
                     coords = rectangle.split(';')
                     if len(coords) == 2:
@@ -177,26 +230,21 @@ class IPLocationTool(ToolBase):
                 except (ValueError, IndexError) as e:
                     logger.warning(f"解析矩形区域坐标失败: {rectangle}, 错误: {e}")
             
-            # 判断位置类型
+            # 判断位置类型和构建描述
             location_type = "unknown"
-            if province == "局域网":
+            location_description = ""
+            
+            if province == "局域网" or (not province and not city):
                 location_type = "local_network"
-            elif not province or not city:
+                location_description = "您当前使用的是本地网络IP地址，无法进行精确地理定位"
+            elif not province or not city or province.strip() == "" or city.strip() == "":
                 location_type = "invalid_or_foreign"
+                location_description = "无法定位您的具体位置，可能是国外IP或无效IP地址"
             elif province == city:  # 直辖市
                 location_type = "municipality"
+                location_description = f"您当前位于{province}"
             else:
                 location_type = "normal"
-            
-            # 构建友好的位置描述
-            location_description = ""
-            if location_type == "local_network":
-                location_description = "您当前使用的是局域网IP地址"
-            elif location_type == "invalid_or_foreign":
-                location_description = "无法定位您的具体位置，可能是国外IP或无效IP"
-            elif location_type == "municipality":
-                location_description = f"您当前位于{province}"
-            elif location_type == "normal":
                 location_description = f"您当前位于{province}{city}"
             
             return {
