@@ -21,6 +21,7 @@ from .tools.tool_base import ToolManager
 from .tools.weather_tool import WeatherTool
 from .tools.infrastructure_tool import InfrastructureTool
 from .tools.traffic_tool import TrafficTool
+from .tools.ip_location_tool import IPLocationTool
 
 # ──────────────────── 1. 读取环境变量 ──────────────────── 
 load_dotenv()
@@ -100,6 +101,9 @@ class TravelAgent(AgentInterface):
 
         # 注册交通态势查询工具
         self._tool_manager.register_tool(TrafficTool())
+
+        # 注册 ip 定位查询工具
+        self._tool_manager.register_tool(IPLocationTool())
         
         # 在这里可以轻松添加更多工具
         # self._tool_manager.register_tool(TranslationTool())
