@@ -34,6 +34,16 @@ dependencies = [
     "tqdm>=4.67.1",
     "uvicorn[standard]>=0.33.0",
     "websocket-client>=1.8.0",
+    # 新增依赖 - 用于旅游代理功能
+    "pillow>=10.2.0",          # 图像处理
+    "geopy>=2.4.1",            # 地理编码和距离计算
+    "folium>=0.15.1",          # 交互式地图
+    "aiohttp>=3.9.5",          # 异步HTTP客户端，用于API调用
+    "python-dotenv>=1.0.1",    # 环境变量管理，用于API密钥
+    "jieba>=0.42.1",           # 中文分词
+    "transformers>=4.40.0",    # 用于图像识别和文本生成
+    "matplotlib>=3.8.3",       # 数据可视化
+    "pandas>=2.2.1",           # 数据处理
 ]
 
 [tool.pixi.project]

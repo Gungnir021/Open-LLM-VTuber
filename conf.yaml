@@ -14,6 +14,7 @@ system_config:
     live2d_expression_prompt: 'live2d_expression_prompt' # 将追加到系统提示末尾，让 LLM（大型语言模型）包含控制面部表情的关键字。支持的关键字将自动加载到 `[<insert_emomap_keys>]` 的位置。
     # 启用 think_tag_prompt 可让不具备思考输出的 LLM 也能展示内心想法、心理活动和动作（以括号形式呈现），但不会进行语音合成。更多详情请参考 think_tag_prompt。
     # think_tag_prompt: 'think_tag_prompt'
+    think_tag_prompt: 'think_tag_prompt'
   group_conversation_prompt: 'group_conversation_prompt' # 当使用群聊时，此提示词将添加到每个 AI 参与者的记忆中。
 
 # 默认角色的配置
@@ -38,7 +39,7 @@ character_config:
   #  =================== LLM 后端设置 ===================
 
   agent_config:
-    conversation_agent_choice: 'basic_memory_agent' # 对话代理选择
+    conversation_agent_choice: 'travel_agent' # 对话代理选择
 
     agent_settings:
       basic_memory_agent:
@@ -51,7 +52,7 @@ character_config:
         # 'mistral_llm'
         llm_provider: 'ollama_llm' # 使用的 LLM 提供商
         # 是否在第一句回应时遇上逗号就直接生成音频以减少首句延迟（默认：True）
-        faster_first_response: True
+        faster_first_response: true
         # 句子分割方法：'regex' 或 'pysbd'
         segment_method: 'pysbd'
 
@@ -87,11 +88,12 @@ character_config:
         idle_timeout: 15 # 空闲超时断开连接的秒数
 
       travel_agent:
-        llm_provider: 'ollama_llm'
+        llm_provider: 'deepseek_llm'
 
       # MemGPT 配置：MemGPT 暂时被移除
       ##
 
+        api_key: ''
     llm_configs:
       # 一个配置池，用于不同代理中使用的所有无状态 llm 提供商的凭据和连接详细信息
 
@@ -116,7 +118,7 @@ character_config:
 
       llama_cpp_llm:
         model_path: '<path-to-gguf-model-file>' # GGUF 模型文件路径
-        verbose: False # 是否输出详细信息
+        verbose: false # 是否输出详细信息
 
       ollama_llm:
         base_url: 'http://localhost:11434/v1' # 基础 URL
@@ -125,7 +127,7 @@ character_config:
         # 不活动后模型在内存中保留的时间（秒）
         # 设置为 -1 表示模型将永远保留在内存中（即使退出 open llm vtuber 之后也是）
         keep_alive: -1
-        unload_at_exit: True # 退出时从内存中卸载模型
+        unload_at_exit: true # 退出时从内存中卸载模型
 
       openai_llm:
         llm_api_key: 'Your Open AI API key' # OpenAI API 密钥
@@ -143,7 +145,7 @@ character_config:
         temperature: 1.0 # 温度，介于 0 到 2 之间
 
       deepseek_llm:
-        llm_api_key: 'Your DeepSeek API key' # DeepSeek API 密钥
+        llm_api_key: 'sk-64355d25fd2048d8bc4116d8117963f3' # DeepSeek API 密钥
         model: 'deepseek-chat' # 使用的模型
         temperature: 0.7 # 注意，DeepSeek 的温度范围是 0 到 1
 
@@ -178,8 +180,8 @@ character_config:
       # 所有可用模型都列在 https://abdeladim-s.github.io/pywhispercpp/#pywhispercpp.constants.AVAILABLE_MODELS
       model_name: 'small' # 模型名称
       model_dir: 'models/whisper' # 模型目录
-      print_realtime: False # 是否实时打印
-      print_progress: False # 是否打印进度
+      print_realtime: false # 是否实时打印
+      print_progress: false # 是否打印进度
       language: 'auto' # 语言，en、zh、auto
 
     whisper:
@@ -194,10 +196,10 @@ character_config:
       vad_model: 'fsmn-vad' # 仅当音频长度超过 30 秒时才需要使用
       punc_model: 'ct-punc' # 标点符号模型
       device: 'cpu' # 设备
-      disable_update: True # 是否每次启动时都检查 FunASR 更新
+      disable_update: true # 是否每次启动时都检查 FunASR 更新
       ncpu: 4 # CPU 内部操作的线程数
       hub: 'ms' # ms（默认）从 ModelScope 下载模型。使用 hf 从 Hugging Face 下载模型。
-      use_itn: False # 是否使用数字格式转换
+      use_itn: false # 是否使用数字格式转换
       language: 'auto' # zh, en, auto
 
     # pip install sherpa-onnx
@@ -239,7 +241,7 @@ character_config:
       # debug: False # 启用调试模式
       # sample_rate: 16000 # 采样率（应与模型预期的采样率匹配）
       # feature_dim: 80       # 特征维度（应与模型预期的特征维度匹配）
-      use_itn: True # 对 SenseVoice 模型启用 ITN（如果不是 SenseVoice 模型，则应设置为 False）
+      use_itn: true # 对 SenseVoice 模型启用 ITN（如果不是 SenseVoice 模型，则应设置为 False）
       # 推理平台（cpu 或 cuda）(cuda 需要额外配置，请参考文档)
       provider: 'cpu'
 
@@ -269,7 +271,7 @@ character_config:
     edge_tts:
       # 查看文档：https://github.com/rany2/edge-tts
       # 使用 `edge-tts --list-voices` 列出所有可用语音
-      voice: zh-CN-XiaoxiaoNeural # 'en-US-AvaMultilingualNeural' #'zh-CN-XiaoxiaoNeural' # 'ja-JP-NanamiNeural'
+      voice: zh-CN-XiaoxuanNeural # 'en-US-AvaMultilingualNeural' #'zh-CN-XiaoxiaoNeural' # 'ja-JP-NanamiNeural'
 
     # pyttsx3_tts 没有任何配置。
 
@@ -294,7 +296,7 @@ character_config:
       prompt_wav_upload_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav' # 提示 wav 上传 url
       prompt_wav_record_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav' # 提示 wav 录制 url
       instruct_text: '' # 指令文本
-      stream: False # 流式生成
+      stream: false # 流式生成
       seed: 0 # 种子
       speed: 1.0 # 语速
       api_name: '/generate_audio' # API 名称
@@ -379,15 +381,15 @@ character_config:
   tts_preprocessor_config:
     # 关于进入 TTS 的文本预处理的设置
 
-    remove_special_char: True # 从音频生成中删除表情符号等特殊字符
-    ignore_brackets: True # 从音频生成中删除中括号包住的内容
-    ignore_parentheses: True # 从音频生成中删除括号包住的内容
-    ignore_asterisks: True # 从音频生成中删除星号包住的内容(单双星号)
-    ignore_angle_brackets: True # 从音频生成中删除尖括号包住的内容
+    remove_special_char: true # 从音频生成中删除表情符号等特殊字符
+    ignore_brackets: true # 从音频生成中删除中括号包住的内容
+    ignore_parentheses: true # 从音频生成中删除括号包住的内容
+    ignore_asterisks: true # 从音频生成中删除星号包住的内容(单双星号)
+    ignore_angle_brackets: true # 从音频生成中删除尖括号包住的内容
 
     translator_config:
       # 比如...你说话并阅读英语字幕，而 TTS 说日语之类的
-      translate_audio: False # 警告：请确保翻译引擎配置成功再开启此选项，否则会翻译失败
+      translate_audio: false # 警告：请确保翻译引擎配置成功再开启此选项，否则会翻译失败
       translate_provider: 'deeplx' # 翻译提供商, 目前支持 deeplx 或 tencent
 
 
@@ -400,3 +402,10 @@ character_config:
         region: 'ap-guangzhou'
         source_lang: 'zh'
         target_lang: 'ja'
+      deeplx:
+        deeplx_target_lang: 'JA'
+        deeplx_api_endpoint: 'http://localhost:1188/v2/translate'
+
+      #  Tencent Text Translation  5 million characters per month  Remember to turn off post-payment, need to manually go to Machine Translation Console > System Settings to disable
+      #   https://cloud.tencent.com/document/product/551/35017
+      #   https://console.cloud.tencent.com/cam/capi

@@ -1,8 +1,4 @@
-"""Description: This file contains the implementation of the `AsyncLLM` class.
-This class is responsible for handling asynchronous interaction with OpenAI API compatible
-endpoints for language generation.
-"""
-
+import json
 from typing import AsyncIterator, List, Dict, Any
 from openai import (
     AsyncStream,
@@ -53,7 +49,7 @@ class AsyncLLM(StatelessLLMInterface):
         )
 
     async def chat_completion(
-        self, messages: List[Dict[str, Any]], system: str = None
+        self, messages: List[Dict[str, Any]], system: str = None, tools: List[Dict[str, Any]] = None
     ) -> AsyncIterator[str]:
         """
         Generates a chat completion using the OpenAI API asynchronously.
@@ -61,6 +57,7 @@ class AsyncLLM(StatelessLLMInterface):
         Parameters:
         - messages (List[Dict[str, Any]]): The list of messages to send to the API.
         - system (str, optional): System prompt to use for this completion.
+        - tools (List[Dict[str, Any]], optional): List of tools to use for function calling.
 
         Yields:
         - str: The content of each chunk from the API response.
@@ -81,18 +78,41 @@ class AsyncLLM(StatelessLLMInterface):
                     *messages,
                 ]
 
+            # 创建请求参数
+            request_params = {
+                "messages": messages_with_system,
+                "model": self.model,
+                "stream": True,
+                "temperature": self.temperature,
+            }
+            
+            # 如果提供了tools参数，添加到请求中
+            if tools:
+                request_params["tools"] = tools
+
             stream: AsyncStream[
                 ChatCompletionChunk
-            ] = await self.client.chat.completions.create(
-                messages=messages_with_system,
-                model=self.model,
-                stream=True,
-                temperature=self.temperature,
-            )
+            ] = await self.client.chat.completions.create(**request_params)
+            
+            # 收集完整响应
+            full_response = ""
             async for chunk in stream:
                 if chunk.choices[0].delta.content is None:
                     chunk.choices[0].delta.content = ""
+                full_response += chunk.choices[0].delta.content
                 yield chunk.choices[0].delta.content
+        
+            # 如果是工具调用，需要特殊处理
+            if tools and "tool_calls" in full_response:
+                try:
+                    # 尝试解析JSON响应
+                    response_obj = json.loads(full_response)
+                    if "tool_calls" in response_obj:
+                        # 返回完整的工具调用信息
+                        yield json.dumps({"message": {"tool_calls": response_obj["tool_calls"]}})
+                except json.JSONDecodeError:
+                    # 如果不是有效的JSON，忽略错误
+                    pass
 
         except APIConnectionError as e:
             logger.error(

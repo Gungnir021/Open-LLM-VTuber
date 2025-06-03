@@ -5,7 +5,7 @@ from .agents.agent_interface import AgentInterface
 from .agents.basic_memory_agent import BasicMemoryAgent
 from .stateless_llm_factory import LLMFactory as StatelessLLMFactory
 from .agents.hume_ai import HumeAIAgent
-
+from .agents.travel_agent import TravelAgent
 
 class AgentFactory:
     @staticmethod
@@ -97,6 +97,52 @@ class AgentFactory:
                 host=settings.get("host", "api.hume.ai"),
                 config_id=settings.get("config_id"),
                 idle_timeout=settings.get("idle_timeout", 15),
+            )
+
+        elif conversation_agent_choice == "travel_agent":
+            travel_settings = agent_settings.get("travel_agent", {})
+            llm_provider = travel_settings.get("llm_provider")
+            if llm_provider is None:
+                raise ValueError("travel_agent requires llm_provider to be set")
+            
+            # Get the LLM config for this provider
+            llm_config: dict = llm_configs.get(llm_provider)
+            if not llm_config:
+                raise ValueError(
+                    f"Configuration not found for LLM provider: {llm_provider}"
+                )
+            
+            persona_prompt = travel_settings.get("persona_prompt", "You are a helpful travel assistant.")
+            
+            llm = StatelessLLMFactory.create_llm(llm_provider, **llm_config)
+            
+            # Create a default tts_preprocessor_config if None is provided
+            if tts_preprocessor_config is None:
+                from ..config_manager.tts_preprocessor import TTSPreprocessorConfig, TranslatorConfig
+                
+                # Create default translator config
+                default_translator_config = TranslatorConfig(
+                    translate_audio=False,
+                    translate_provider="deeplx",
+                    deeplx=None,
+                    tencent=None
+                )
+                
+                # Create default TTS preprocessor config
+                tts_preprocessor_config = TTSPreprocessorConfig(
+                    remove_special_char=True,
+                    ignore_brackets=True,
+                    ignore_parentheses=True,
+                    ignore_asterisks=True,
+                    ignore_angle_brackets=True,
+                    translator_config=default_translator_config
+                )
+            
+            return TravelAgent(
+                llm=llm, 
+                system_prompt=persona_prompt, 
+                live2d_model=live2d_model,
+                tts_preprocessor_config=tts_preprocessor_config
             )
 
         else:

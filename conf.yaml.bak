@@ -37,7 +37,7 @@ character_config:
   #  =================== LLM Backend Settings ===================
 
   agent_config:
-    conversation_agent_choice: 'basic_memory_agent'
+    conversation_agent_choice: 'travel_agent'
 
     agent_settings:
       basic_memory_agent:
@@ -51,7 +51,7 @@ character_config:
         llm_provider: 'ollama_llm'
         # let ai speak as soon as the first comma is received on the first sentence
         # to reduced latency.
-        faster_first_response: True
+        faster_first_response: true
         # Method for segmenting sentences: 'regex' or 'pysbd'
         segment_method: 'pysbd'
 
@@ -79,7 +79,6 @@ character_config:
           config:
             model: 'mxbai-embed-large:latest'
             ollama_base_url: 'http://localhost:11434'
-        
       hume_ai_agent:
         api_key: ''
         host: 'api.hume.ai' # Do not change this in most cases
@@ -87,12 +86,12 @@ character_config:
         idle_timeout: 15 # How many seconds to wait before disconnecting
 
       travel_agent:
-        llm_provider: 'ollama_llm'
-        api_key: ''
- 
+        llm_provider: 'deepseek_llm'
+
       # MemGPT Configurations: MemGPT is temporarily removed
       ##
 
+        api_key: ''
     llm_configs:
       # a configuration pool for the credentials and connection details for
       # all of the stateless llm providers that will be used in different agents
@@ -118,7 +117,7 @@ character_config:
 
       llama_cpp_llm:
         model_path: '<path-to-gguf-model-file>'
-        verbose: False
+        verbose: false
 
       ollama_llm:
         base_url: 'http://localhost:11434/v1'
@@ -127,7 +126,7 @@ character_config:
         # seconds to keep the model in memory after inactivity. 
         # set to -1 to keep the model in memory forever (even after exiting open llm vtuber)
         keep_alive: -1
-        unload_at_exit: True # unload the model from memory at exit
+        unload_at_exit: true # unload the model from memory at exit
 
       openai_llm:
         llm_api_key: 'Your Open AI API key'
@@ -145,10 +144,10 @@ character_config:
         temperature: 1.0 # value between 0 to 2
 
       deepseek_llm:
-        llm_api_key: 'Your DeepSeek API key'
+        llm_api_key: 'sk-64355d25fd2048d8bc4116d8117963f3'
         model: 'deepseek-chat'
         temperature: 0.7 # note that deepseek's temperature ranges from 0 to 1
-      
+
       mistral_llm:
         llm_api_key: 'Your Mistral API key'
         model: 'pixtral-large-latest'
@@ -181,8 +180,8 @@ character_config:
       # all available models are listed on https://abdeladim-s.github.io/pywhispercpp/#pywhispercpp.constants.AVAILABLE_MODELS
       model_name: 'small'
       model_dir: 'models/whisper'
-      print_realtime: False
-      print_progress: False
+      print_realtime: false
+      print_progress: false
       language: 'auto' # en, zh, auto,
 
     whisper:
@@ -198,10 +197,10 @@ character_config:
       vad_model: 'fsmn-vad' # this is only used to make it works if audio is longer than 30s
       punc_model: 'ct-punc' # punctuation model.
       device: 'cpu'
-      disable_update: True # should we check FunASR updates everytime on launch
+      disable_update: true # should we check FunASR updates everytime on launch
       ncpu: 4 # number of threads for CPU internal operations.
       hub: 'ms' # ms (default) to download models from ModelScope. Use hf to download models from Hugging Face.
-      use_itn: False
+      use_itn: false
       language: 'auto' # zh, en, auto
 
     # pip install sherpa-onnx
@@ -244,9 +243,9 @@ character_config:
       # debug: False # Enable debug mode
       # sample_rate: 16000 # Sample rate (should match the model's expected sample rate)
       # feature_dim: 80       # Feature dimension (should match the model's expected feature dimension)
-      use_itn: True # Enable ITN for SenseVoice models (should set to False if not using SenseVoice models)
+      use_itn: true # Enable ITN for SenseVoice models (should set to False if not using SenseVoice models)
       # Provider for inference (cpu or cuda) (cuda option needs additional settings. Please check our docs)
-      provider: 'cpu' 
+      provider: 'cpu'
 
     groq_whisper_asr:
       api_key: ''
@@ -274,7 +273,7 @@ character_config:
     edge_tts:
       # Check out doc at https://github.com/rany2/edge-tts
       # Use `edge-tts --list-voices` to list all available voices
-      voice: 'en-US-AvaMultilingualNeural' # 'en-US-AvaMultilingualNeural' #'zh-CN-XiaoxiaoNeural' # 'ja-JP-NanamiNeural'
+      voice: 'zh-CN-XiaoxuanNeural' # 'en-US-AvaMultilingualNeural' #'zh-CN-XiaoxiaoNeural' # 'ja-JP-NanamiNeural'
 
     # pyttsx3_tts doesn't have any config.
 
@@ -293,16 +292,16 @@ character_config:
     cosyvoice2_tts: # Cosy Voice TTS connects to the gradio webui
       # Check their documentation for deployment and the meaning of the following configurations
       client_url: 'http://127.0.0.1:50000/' # CosyVoice gradio demo webui url
-      mode_checkbox_group: '3s极速复刻' 
-      sft_dropdown: '' 
-      prompt_text: '' 
-      prompt_wav_upload_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav' 
-      prompt_wav_record_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav' 
-      instruct_text: '' 
-      stream: False 
-      seed: 0 
-      speed: 1.0 
-      api_name: '/generate_audio' 
+      mode_checkbox_group: '3s极速复刻'
+      sft_dropdown: ''
+      prompt_text: ''
+      prompt_wav_upload_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav'
+      prompt_wav_record_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav'
+      instruct_text: ''
+      stream: false
+      seed: 0
+      speed: 1.0
+      api_name: '/generate_audio'
 
     melo_tts:
       speaker: 'EN-Default' # ZH
@@ -384,21 +383,21 @@ character_config:
   tts_preprocessor_config:
     # settings regarding preprocessing for text that goes into TTS
 
-    remove_special_char: True # remove special characters like emoji from audio generation
-    ignore_brackets: True # ignore everything inside brackets
-    ignore_parentheses: True # ignore everything inside parentheses
-    ignore_asterisks: True # ignore everything wrapped inside asterisks
-    ignore_angle_brackets: True # ignore everything wrapped inside <text>
+    remove_special_char: true # remove special characters like emoji from audio generation
+    ignore_brackets: true # ignore everything inside brackets
+    ignore_parentheses: true # ignore everything inside parentheses
+    ignore_asterisks: true # ignore everything wrapped inside asterisks
+    ignore_angle_brackets: true # ignore everything wrapped inside <text>
 
     translator_config:
       # Like... you speak and read the subtitles in English, and the TTS speaks Japanese or that kind of things
-      translate_audio: False # Warning: you need to deploy DeeplX to use this. Otherwise it's going to crash
+      translate_audio: false # Warning: you need to deploy DeeplX to use this. Otherwise it's going to crash
       translate_provider: 'deeplx' # deeplx or tencent
 
       deeplx:
         deeplx_target_lang: 'JA'
         deeplx_api_endpoint: 'http://localhost:1188/v2/translate'
-      
+
       #  Tencent Text Translation  5 million characters per month  Remember to turn off post-payment, need to manually go to Machine Translation Console > System Settings to disable
       #   https://cloud.tencent.com/document/product/551/35017
       #   https://console.cloud.tencent.com/cam/capi
