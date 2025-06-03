@@ -19,9 +19,9 @@ system_config:
 
 # 默认角色的配置
 character_config:
-  conf_name: 'shizuku-local' # 角色配置文件的名称
-  conf_uid: 'shizuku-local-001' # 角色配置的唯一标识符
-  live2d_model_name: 'shizuku-local' # Live2D 模型名称
+  conf_name: 'cat' # 角色配置文件的名称
+  conf_uid: 'cat-001' # 角色配置的唯一标识符
+  live2d_model_name: 'cat' # Live2D 模型名称
   character_name: 'Shizuku' # 将在群聊中使用，并显示为 AI 的名称。
   avatar: 'shizuku.png' # 建议使用正方形图像作为头像。将其保存到 avatars 文件夹中。留空则使用角色名称的首字母作为头像。
   human_name: 'Human' # 将在群聊中使用，并显示为人类的名称。
@@ -90,10 +90,6 @@ character_config:
       travel_agent:
         llm_provider: 'deepseek_llm'
 
-      # MemGPT 配置：MemGPT 暂时被移除
-      ##
-
-        api_key: ''
     llm_configs:
       # 一个配置池，用于不同代理中使用的所有无状态 llm 提供商的凭据和连接详细信息
 
