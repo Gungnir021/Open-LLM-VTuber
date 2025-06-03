@@ -2,7 +2,6 @@ import json
 from typing import Dict, Any
 from loguru import logger
 from ..conversations.conversation_handler import handle_conversation_trigger
-from ..agent.input_types import BatchInput, TextData, ImageData, TextSource, ImageSource
 from .image_service import ImageService
 from .baidu_service import BaiduLandmarkService
 
