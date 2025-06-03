@@ -7,22 +7,23 @@ from starlette.websockets import WebSocketDisconnect
 from loguru import logger
 from .service_context import ServiceContext
 from .websocket_handler import WebSocketHandler
+from .services.travel_agent_service import TravelAgentService
+from .services.image_service import ImageService
+
+import base64
+import os
+import requests
+from PIL import Image
+import io
 
 
 def init_client_ws_route(default_context_cache: ServiceContext) -> APIRouter:
-    """
-    Create and return API routes for handling the `/client-ws` WebSocket connections.
-
-    Args:
-        default_context_cache: Default service context cache for new sessions.
-
-    Returns:
-        APIRouter: Configured router with WebSocket endpoint.
-    """
-
     router = APIRouter()
     ws_handler = WebSocketHandler(default_context_cache)
-
+    
+    # 设置 websocket_handler 引用
+    default_context_cache.websocket_handler = ws_handler
+    
     @router.websocket("/client-ws")
     async def websocket_endpoint(websocket: WebSocket):
         """WebSocket endpoint for client connections"""
@@ -43,139 +44,58 @@ def init_client_ws_route(default_context_cache: ServiceContext) -> APIRouter:
 
 
 def init_webtool_routes(default_context_cache: ServiceContext) -> APIRouter:
-    """
-    Create and return API routes for handling web tool interactions.
-
-    Args:
-        default_context_cache: Default service context cache for new sessions.
-
-    Returns:
-        APIRouter: Configured router with WebSocket endpoint.
-    """
-
     router = APIRouter()
-
-    @router.get("/web-tool")
-    async def web_tool_redirect():
-        """Redirect /web-tool to /web_tool/index.html"""
-        return Response(status_code=302, headers={"Location": "/web-tool/index.html"})
-
-    @router.get("/web_tool")
-    async def web_tool_redirect_alt():
-        """Redirect /web_tool to /web_tool/index.html"""
-        return Response(status_code=302, headers={"Location": "/web-tool/index.html"})
-
-    @router.post("/asr")
-    async def transcribe_audio(file: UploadFile = File(...)):
-        """
-        Endpoint for transcribing audio using the ASR engine
-        """
-        logger.info(f"Received audio file for transcription: {file.filename}")
-
+    
+    # 初始化服务，传入 websocket_handler
+    travel_agent = TravelAgentService(default_context_cache.websocket_handler)
+    image_service = ImageService()
+    
+    @router.post("/upload-image")
+    async def upload_image_for_landmark(file: UploadFile = File(...)):
+        """上传图片进行地标识别和AI讲解"""
+        logger.info(f"收到图片上传请求: {file.filename}")
+        
         try:
+            # 1. 验证文件
             contents = await file.read()
-
-            # Validate minimum file size
-            if len(contents) < 44:  # Minimum WAV header size
-                raise ValueError("Invalid WAV file: File too small")
-
-            # Decode the WAV header and get actual audio data
-            wav_header_size = 44  # Standard WAV header size
-            audio_data = contents[wav_header_size:]
-
-            # Validate audio data size
-            if len(audio_data) % 2 != 0:
-                raise ValueError("Invalid audio data: Buffer size must be even")
-
-            # Convert to 16-bit PCM samples to float32
-            try:
-                audio_array = (
-                    np.frombuffer(audio_data, dtype=np.int16).astype(np.float32)
-                    / 32768.0
-                )
-            except ValueError as e:
-                raise ValueError(
-                    f"Audio format error: {str(e)}. Please ensure the file is 16-bit PCM WAV format."
-                )
-
-            # Validate audio data
-            if len(audio_array) == 0:
-                raise ValueError("Empty audio data")
-
-            text = await default_context_cache.asr_engine.async_transcribe_np(
-                audio_array
+            is_valid, error_msg = image_service.validate_image_file(
+                file.content_type, len(contents)
             )
-            logger.info(f"Transcription result: {text}")
-            return {"text": text}
-
-        except ValueError as e:
-            logger.error(f"Audio format error: {e}")
-            return Response(
-                content=json.dumps({"error": str(e)}),
-                status_code=400,
-                media_type="application/json",
-            )
+            
+            if not is_valid:
+                return Response(
+                    content=json.dumps({"error": error_msg}),
+                    status_code=400,
+                    media_type="application/json"
+                )
+            
+            # 2. 处理图片并获取讲解
+            result = await travel_agent.process_landmark_image(contents)
+            
+            if not result["success"]:
+                return Response(
+                    content=json.dumps({"error": result["error"]}),
+                    status_code=500,
+                    media_type="application/json"
+                )
+            
+            # 3. 地标识别成功，AI讲解已通过对话系统异步处理
+            landmark_name = result["landmark_name"]
+            
+            logger.info(f"地标识别成功：{landmark_name}，已触发AI讲解") 
+            
+            # 4. 返回 HTTP 响应
+            result["message"] = "地标识别和讲解获取成功，已发送到对话界面"
+            
+            logger.info("地标识别和讲解处理完成")
+            return result
+            
         except Exception as e:
-            logger.error(f"Error during transcription: {e}")
+            logger.error(f"处理图片上传请求时发生错误: {e}")
             return Response(
-                content=json.dumps(
-                    {"error": "Internal server error during transcription"}
-                ),
+                content=json.dumps({"error": f"处理图片时发生错误: {str(e)}"}),
                 status_code=500,
-                media_type="application/json",
+                media_type="application/json"
             )
-
-    @router.websocket("/tts-ws")
-    async def tts_endpoint(websocket: WebSocket):
-        """WebSocket endpoint for TTS generation"""
-        await websocket.accept()
-        logger.info("TTS WebSocket connection established")
-
-        try:
-            while True:
-                data = await websocket.receive_json()
-                text = data.get("text")
-                if not text:
-                    continue
-
-                logger.info(f"Received text for TTS: {text}")
-
-                # Split text into sentences
-                sentences = [s.strip() for s in text.split(".") if s.strip()]
-
-                try:
-                    # Generate and send audio for each sentence
-                    for sentence in sentences:
-                        sentence = sentence + "."  # Add back the period
-                        file_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}"
-                        audio_path = (
-                            await default_context_cache.tts_engine.async_generate_audio(
-                                text=sentence, file_name_no_ext=file_name
-                            )
-                        )
-                        logger.info(
-                            f"Generated audio for sentence: {sentence} at: {audio_path}"
-                        )
-
-                        await websocket.send_json(
-                            {
-                                "status": "partial",
-                                "audioPath": audio_path,
-                                "text": sentence,
-                            }
-                        )
-
-                    # Send completion signal
-                    await websocket.send_json({"status": "complete"})
-
-                except Exception as e:
-                    logger.error(f"Error generating TTS: {e}")
-                    await websocket.send_json({"status": "error", "message": str(e)})
-
-        except WebSocketDisconnect:
-            logger.info("TTS WebSocket client disconnected")
-        except Exception as e:
-            logger.error(f"Error in TTS WebSocket connection: {e}")
-            await websocket.close()
 
     return router

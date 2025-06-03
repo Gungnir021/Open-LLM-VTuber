@@ -263,7 +263,7 @@ class TravelAgent(AgentInterface):
                 "https://api.deepseek.com/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=30
+                timeout=60
             ).json()
             
             print(f"🔧 [DEBUG] DeepSeek API 响应状态: 成功")
@@ -300,7 +300,7 @@ class TravelAgent(AgentInterface):
                 "https://api.deepseek.com/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=30
+                timeout=60
             ).json()
             
             final_content = final_response["choices"][0]["message"]["content"]

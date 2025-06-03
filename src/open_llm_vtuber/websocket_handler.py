@@ -93,6 +93,8 @@ class WebSocketHandler:
             "switch-config": self._handle_config_switch,
             "fetch-backgrounds": self._handle_fetch_backgrounds,
             "audio-play-start": self._handle_audio_play_start,
+            "image-input": self._handle_image_input, 
+            "audio-play-start": self._handle_audio_play_start,
         }
 
     async def handle_new_connection(
@@ -551,3 +553,45 @@ class WebSocketHandler:
     ) -> None:
         """Handle group info request"""
         await self.send_group_update(websocket, client_uid)
+
+    async def _handle_image_input(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
+        """处理图片输入消息"""
+        try:
+            image_data = data.get("image_data")
+            if not image_data:
+                await websocket.send_text(
+                    json.dumps({"type": "error", "message": "缺少图片数据"})
+                )
+                return
+            
+            logger.info(f"收到客户端 {client_uid} 的图片输入")
+            
+            # 构造包含图片的输入数据
+            from .agent.input_types import BatchInput, ImageSource
+            
+            # 创建图片源
+            image_source = ImageSource(data=image_data)
+            
+            # 创建批量输入，包含图片和提示文本
+            batch_input = BatchInput(
+                text_sources=[],
+                images=[image_source],
+                prompt="请识别这张图片中的地标，并提供详细的历史文化讲解。"
+            )
+            
+            # 触发对话处理
+            await handle_conversation_trigger(
+                client_uid=client_uid,
+                batch_input=batch_input,
+                current_conversation_tasks=self.current_conversation_tasks,
+                client_contexts=self.client_contexts,
+                chat_group_manager=self.chat_group_manager,
+                broadcast_to_group=self.broadcast_to_group,
+                send_to_client=lambda uid, msg: self.client_connections[uid].send_text(json.dumps(msg))
+            )
+            
+        except Exception as e:
+            logger.error(f"处理图片输入时出错: {e}")
+            await websocket.send_text(
+                json.dumps({"type": "error", "message": f"处理图片失败: {str(e)}"})
+            )
