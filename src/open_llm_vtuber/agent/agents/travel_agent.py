@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 import requests
 from typing import AsyncIterator, List, Dict, Any, Callable, Literal
@@ -22,6 +21,7 @@ from .tools.weather_tool import WeatherTool
 from .tools.infrastructure_tool import InfrastructureTool
 from .tools.traffic_tool import TrafficTool
 from .tools.ip_location_tool import IPLocationTool
+from ..stateless_llm.stateless_llm_interface import StatelessLLMInterface
 
 # ──────────────────── 1. 读取环境变量 ──────────────────── 
 load_dotenv()
@@ -33,7 +33,6 @@ if not DEEPSEEK_API_KEY:
 if not AMAP_API_KEY:
     logger.warning("❌ 未检测到 AMAP_API_KEY，请在 .env 文件中配置。")
 
-from ..stateless_llm.stateless_llm_interface import StatelessLLMInterface
 
 class TravelAgent(AgentInterface):
     """
@@ -266,7 +265,7 @@ class TravelAgent(AgentInterface):
                 timeout=60
             ).json()
             
-            print(f"🔧 [DEBUG] DeepSeek API 响应状态: 成功")
+            print("🔧 [DEBUG] DeepSeek API 响应状态: 成功")
             
             # 检查是否要求调用函数
             tool_calls = response["choices"][0]["message"].get("tool_calls")

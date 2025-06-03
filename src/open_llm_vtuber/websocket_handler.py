@@ -92,7 +92,6 @@ class WebSocketHandler:
             "fetch-configs": self._handle_fetch_configs,
             "switch-config": self._handle_config_switch,
             "fetch-backgrounds": self._handle_fetch_backgrounds,
-            "audio-play-start": self._handle_audio_play_start,
             "image-input": self._handle_image_input, 
             "audio-play-start": self._handle_audio_play_start,
         }

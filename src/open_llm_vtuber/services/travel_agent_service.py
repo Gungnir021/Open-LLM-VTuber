@@ -1,6 +1,5 @@
 import json
-import asyncio
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from loguru import logger
 from ..conversations.conversation_handler import handle_conversation_trigger
 from ..agent.input_types import BatchInput, TextData, ImageData, TextSource, ImageSource
@@ -86,24 +85,6 @@ class TravelAgentService:
             for client_uid, websocket in self.websocket_handler.client_connections.items():
                 try:
                     context = self.websocket_handler.client_contexts[client_uid]
-                    
-                    # 构建包含地标信息的BatchInput
-                    batch_input = BatchInput(
-                        texts=[
-                            TextData(
-                                source=TextSource.INPUT,
-                                content=user_message,
-                                from_name=context.character_config.human_name
-                            )
-                        ],
-                        images=[
-                            ImageData(
-                                source=ImageSource.UPLOAD,
-                                data=landmark_result,  # 传递地标识别结果作为上下文
-                                mime_type="application/json"
-                            )
-                        ]
-                    )
                     
                     # 通过正常的对话处理流程触发
                     await handle_conversation_trigger(

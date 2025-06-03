@@ -1,7 +1,7 @@
 import os
 import json
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from loguru import logger
 from dotenv import load_dotenv
 from .tool_base import ToolBase

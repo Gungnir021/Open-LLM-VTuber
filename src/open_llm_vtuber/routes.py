@@ -1,7 +1,5 @@
 import json
 from uuid import uuid4
-import numpy as np
-from datetime import datetime
 from fastapi import APIRouter, WebSocket, UploadFile, File, Response
 from starlette.websockets import WebSocketDisconnect
 from loguru import logger
@@ -9,13 +7,6 @@ from .service_context import ServiceContext
 from .websocket_handler import WebSocketHandler
 from .services.travel_agent_service import TravelAgentService
 from .services.image_service import ImageService
-
-import base64
-import os
-import requests
-from PIL import Image
-import io
-
 
 def init_client_ws_route(default_context_cache: ServiceContext) -> APIRouter:
     router = APIRouter()
