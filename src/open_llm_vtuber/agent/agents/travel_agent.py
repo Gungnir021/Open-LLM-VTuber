@@ -47,12 +47,6 @@ class TravelAgent(AgentInterface):
     请用友好、专业的语气回复用户。
     禁止输出 markdown 格式的内容。
 
-    你拥有以下工具能力：
-    - get_ip_location: 获取用户当前位置信息
-    - get_weather: 查询指定地点的天气情况
-    - get_traffic_info: 查询交通状况信息
-    - get_infrastructure_info: 查询基础设施信息
-
     请根据用户的具体需求，智能判断需要调用哪些工具：
     - 如果用户询问涉及位置的问题，考虑是否需要获取当前位置
     - 如果用户询问涉及天气的问题，考虑是否需要查询天气
@@ -348,7 +342,7 @@ class TravelAgent(AgentInterface):
                     if final_response.status_code != 200:
                         print(f"ERROR [DEBUG] 最终API调用失败: {final_response.text}")
                         if retry < max_retries - 1:
-                            print(f"⚠️ [DEBUG] 第 {retry + 1} 次尝试失败，重试中...")
+                            print(f"[DEBUG] 第 {retry + 1} 次尝试失败，重试中...")
                             continue
                         return "ERROR 获取最终回复时出现错误"
                     
@@ -362,7 +356,7 @@ class TravelAgent(AgentInterface):
                         final_content = self._validate_and_clean_response(final_content)
                         break
                     elif retry < max_retries - 1:
-                        print(f"⚠️ [DEBUG] 第 {retry + 1} 次尝试响应异常，重试中...")
+                        print(f"[DEBUG] 第 {retry + 1} 次尝试响应异常，重试中...")
                         continue
                         
                 except Exception as e:
@@ -373,7 +367,7 @@ class TravelAgent(AgentInterface):
                         raise e
             
             if not final_content:
-                print("⚠️ [DEBUG] 最终回复为空，返回默认消息")
+                print("[DEBUG] 最终回复为空，返回默认消息")
                 return "抱歉，我已经获取了相关信息，但生成回复时出现了问题。请稍后重试。"
             
             print("✅ [DEBUG] DeepSeek 多函数调用执行成功！")
@@ -542,7 +536,7 @@ class TravelAgent(AgentInterface):
         
         # 4. 避免过度清理检查
         if len(cleaned_content) < original_length * 0.2:  # 如果清理后内容少于原内容的20%
-            print(f"⚠️ [DEBUG] 清理后内容过短({len(cleaned_content)}/{original_length})，保留原内容")
+            print(f"[DEBUG] 清理后内容过短({len(cleaned_content)}/{original_length})，保留原内容")
             return content
         
         if cleaned_content != content:
@@ -581,11 +575,11 @@ class TravelAgent(AgentInterface):
             """
             
             user_input = self._to_text_prompt(input_data)
-            print(f"\n💬 [DEBUG] 收到用户输入: {user_input}")
+            print(f"\n[DEBUG] 收到用户输入: {user_input}")
             
             # 优先尝试 DeepSeek Function Calling
             # 让 AI 自动判断是否需要调用工具
-            print("🚀 [DEBUG] 开始处理用户请求...")
+            print("[DEBUG] 开始处理用户请求...")
             try:
                 print("🔧 [DEBUG] 尝试使用 DeepSeek Function Calling...")
                 response = self._deepseek_function_call(user_input)
@@ -604,7 +598,7 @@ class TravelAgent(AgentInterface):
                     return
                 else:
                     # Function Calling 失败，记录日志但继续使用普通聊天
-                    print(f"⚠️ [DEBUG] Function calling 不可用: {response}")
+                    print(f"[DEBUG] Function calling 不可用: {response}")
                     logger.info(f"Function calling 不可用，使用普通聊天模式: {response}")
                     
             except Exception as e:
@@ -612,11 +606,11 @@ class TravelAgent(AgentInterface):
                 logger.error(f"Function calling 出错，回退到普通聊天: {str(e)}")
             
             # 回退到普通聊天流程
-            print("🔄 [DEBUG] 回退到普通聊天流程...")
+            print("[DEBUG] 回退到普通聊天流程...")
             messages = self._to_messages(input_data)
             
             # 从 LLM 获取 token 流
-            print("🤖 [DEBUG] 调用普通 LLM 聊天接口...")
+            print("[DEBUG] 调用普通 LLM 聊天接口...")
             token_stream = chat_func(messages, self._system)
             complete_response = ""
             
