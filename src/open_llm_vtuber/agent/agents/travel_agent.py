@@ -1,6 +1,9 @@
 import os
+import re
 import json
 import requests
+import asyncio
+import concurrent.futures
 from typing import AsyncIterator, List, Dict, Any, Callable, Literal
 from loguru import logger
 from dotenv import load_dotenv
@@ -43,6 +46,21 @@ class TravelAgent(AgentInterface):
     你是一个专业的旅行助手，可以帮助用户提供旅行建议。
     请用友好、专业的语气回复用户。
     禁止输出 markdown 格式的内容。
+
+    你拥有以下工具能力：
+    - get_ip_location: 获取用户当前位置信息
+    - get_weather: 查询指定地点的天气情况
+    - get_traffic_info: 查询交通状况信息
+    - get_infrastructure_info: 查询基础设施信息
+
+    请根据用户的具体需求，智能判断需要调用哪些工具：
+    - 如果用户询问涉及位置的问题，考虑是否需要获取当前位置
+    - 如果用户询问涉及天气的问题，考虑是否需要查询天气
+    - 如果用户询问涉及出行、路线的问题，考虑是否需要查询交通信息
+    - 如果用户询问涉及设施、服务的问题，考虑是否需要查询基础设施
+
+    你可以同时调用多个工具来获取完整信息，然后基于所有信息给出综合建议。
+    请根据用户问题的复杂程度和信息需求，自主决定调用工具的数量和类型。
     """
 
     def __init__(
@@ -207,7 +225,7 @@ class TravelAgent(AgentInterface):
         return "\n".join(message_parts)
 
     def _deepseek_function_call(self, query: str) -> str:
-        """使用 DeepSeek API 进行函数调用"""
+        """使用 DeepSeek API 进行函数调用，支持多个 tool 并发调用"""
         print("\n🔧 [DEBUG] 开始尝试 DeepSeek Function Calling...")
         print(f"🔧 [DEBUG] 用户输入: {query}")
         
@@ -239,70 +257,299 @@ class TravelAgent(AgentInterface):
         tools = self._tool_manager.get_function_definitions()
         print(f"🔧 [DEBUG] 可用工具数量: {len(tools)}")
         
-        # 步骤1: 首次调用获取函数调用请求
+        # 优化API参数以提升AI的工具调用能力
         payload = {
             "model": "deepseek-chat",
             "messages": messages,
             "tools": tools,
-            "tool_choice": "auto"  # 让 AI 自动决定是否调用工具
+            "tool_choice": "auto",  # 让AI自主决定是否调用工具
+            "parallel_tool_calls": True,  # 启用并行工具调用
+            "temperature": 0.3,  # 降低温度提高一致性
+            "max_tokens": 2000
         }
         
         try:
             print("🔧 [DEBUG] 正在调用 DeepSeek API...")
             response = requests.post(
-                "https://api.deepseek.com/chat/completions",
+                "https://api.deepseek.com/v1/chat/completions",
                 headers=headers,
                 json=payload,
                 timeout=60
-            ).json()
+            )
             
+            if response.status_code != 200:
+                print(f"❌ [DEBUG] API 调用失败: {response.status_code} - {response.text}")
+                return f"❌ API 调用失败: {response.status_code}"
+            
+            response_json = response.json()
             print("🔧 [DEBUG] DeepSeek API 响应状态: 成功")
             
             # 检查是否要求调用函数
-            tool_calls = response["choices"][0]["message"].get("tool_calls")
+            tool_calls = response_json["choices"][0]["message"].get("tool_calls")
             if not tool_calls:
                 # AI 判断不需要调用工具，返回普通回复
-                print("🔧 [DEBUG] AI 判断不需要调用工具，返回普通回复")
-                return response["choices"][0]["message"]["content"]
+                print("🔧 [DEBUG] AI 自主判断不需要调用工具，返回普通回复")
+                return response_json["choices"][0]["message"]["content"]
             
-            print(f"🔧 [DEBUG] AI 决定调用工具，工具数量: {len(tool_calls)}")
+            print(f"🔧 [DEBUG] AI 自主决定调用工具，工具数量: {len(tool_calls)}")
             
-            # 步骤2: 执行函数调用
-            function_name = tool_calls[0]["function"]["name"]
-            function_args = json.loads(tool_calls[0]["function"]["arguments"])
+            # 记录AI的工具选择决策
+            for i, tool_call in enumerate(tool_calls):
+                function_name = tool_call["function"]["name"]
+                function_args = tool_call["function"]["arguments"]
+                print(f"🔧 [DEBUG] 工具 {i+1}: {function_name} - 参数: {function_args}")
             
-            print(f"🔧 [DEBUG] 调用函数: {function_name}")
-            print(f"🔧 [DEBUG] 函数参数: {function_args}")
+            # 步骤2: 并发执行多个函数调用
+            assistant_message = response_json["choices"][0]["message"]
             
-            # 使用工具管理器执行工具
-            tool_result = self._tool_manager.execute_tool(function_name, function_args)
+            # 添加助手的消息（包含工具调用请求）
+            messages.append(assistant_message)
             
-            # 步骤3: 将函数结果返回给模型
-            print("🔧 [DEBUG] 将函数结果返回给 DeepSeek 模型...")
-            payload["messages"].append(response["choices"][0]["message"])
-            payload["messages"].append({
-                "role": "tool",
-                "content": tool_result,
-                "tool_call_id": tool_calls[0]["id"]
-            })
+            # 并发执行所有工具调用
+            tool_results = self._execute_tools_concurrently(tool_calls)
             
-            final_response = requests.post(
-                "https://api.deepseek.com/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=60
-            ).json()
+            # 将所有工具结果添加到消息列表
+            for tool_call, result in zip(tool_calls, tool_results):
+                messages.append({
+                    "role": "tool",
+                    "content": result["content"],
+                    "tool_call_id": tool_call["id"]
+                })
             
-            final_content = final_response["choices"][0]["message"]["content"]
-            print(f"🔧 [DEBUG] Function Calling 完成，最终回复长度: {len(final_content)}")
-            print("✅ [DEBUG] DeepSeek Function Calling 执行成功！")
+            print(f"🔧 [DEBUG] 所有函数调用完成，共执行 {len(tool_calls)} 个函数")
             
+            # 步骤3: 将所有函数结果返回给模型，获取最终回复
+            print("🔧 [DEBUG] 将所有函数结果返回给 DeepSeek 模型...")
+            print(f"🔧 [DEBUG] 发送的消息数量: {len(messages)}")
+            
+            # 构建最终请求，不包含 tools 参数
+            final_payload = {
+                "model": "deepseek-chat",
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 2000
+            }
+            
+            # 重试机制
+            max_retries = 2
+            final_content = None
+            
+            for retry in range(max_retries):
+                try:
+                    final_response = requests.post(
+                        "https://api.deepseek.com/v1/chat/completions",
+                        headers=headers,
+                        json=final_payload,
+                        timeout=60
+                    )
+                    
+                    print(f"🔧 [DEBUG] 最终响应状态码: {final_response.status_code}")
+                    
+                    if final_response.status_code != 200:
+                        print(f"❌ [DEBUG] 最终API调用失败: {final_response.text}")
+                        if retry < max_retries - 1:
+                            print(f"⚠️ [DEBUG] 第 {retry + 1} 次尝试失败，重试中...")
+                            continue
+                        return "❌ 获取最终回复时出现错误"
+                    
+                    final_response_json = final_response.json()
+                    
+                    final_content = final_response_json["choices"][0]["message"]["content"]
+                    print(f"🔧 [DEBUG] Function Calling 完成，最终回复长度: {len(final_content)}")
+                    
+                    # 响应格式验证和清理
+                    if final_content and self._validate_and_clean_response(final_content):
+                        final_content = self._validate_and_clean_response(final_content)
+                        break
+                    elif retry < max_retries - 1:
+                        print(f"⚠️ [DEBUG] 第 {retry + 1} 次尝试响应异常，重试中...")
+                        continue
+                        
+                except Exception as e:
+                    print(f"❌ [DEBUG] 第 {retry + 1} 次最终调用异常: {str(e)}")
+                    if retry < max_retries - 1:
+                        continue
+                    else:
+                        raise e
+            
+            if not final_content:
+                print("⚠️ [DEBUG] 最终回复为空，返回默认消息")
+                return "抱歉，我已经获取了相关信息，但生成回复时出现了问题。请稍后重试。"
+            
+            print("✅ [DEBUG] DeepSeek 多函数调用执行成功！")
             return final_content
             
         except Exception as e:
             print(f"❌ [DEBUG] DeepSeek API 调用失败: {str(e)}")
             logger.error(f"DeepSeek API 调用失败: {str(e)}")
             return f"❌ 抱歉，智能功能暂时不可用: {str(e)}"
+    
+    def _execute_tools_concurrently(self, tool_calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """并发执行多个工具调用"""
+        print(f"🔧 [DEBUG] 开始并发执行 {len(tool_calls)} 个工具")
+        
+        def execute_single_tool(tool_call):
+            """执行单个工具的包装函数"""
+            function_name = tool_call["function"]["name"]
+            function_args = json.loads(tool_call["function"]["arguments"])
+            tool_call_id = tool_call["id"]
+            
+            print(f"🔧 [DEBUG] 开始执行工具: {function_name}")
+            print(f"🔧 [DEBUG] 工具参数: {function_args}")
+            
+            try:
+                # 使用工具管理器执行工具
+                tool_result = self._tool_manager.execute_tool(function_name, function_args)
+                print(f"✅ [DEBUG] 工具 {function_name} 执行成功")
+                print(f"🔧 [DEBUG] 工具执行结果: {tool_result[:200]}...")
+                
+                return {
+                    "success": True,
+                    "content": tool_result,
+                    "tool_name": function_name
+                }
+                
+            except Exception as tool_error:
+                print(f"❌ [DEBUG] 工具 {function_name} 执行失败: {str(tool_error)}")
+                error_message = f"工具 {function_name} 执行失败: {str(tool_error)}"
+                
+                return {
+                    "success": False,
+                    "content": error_message,
+                    "tool_name": function_name
+                }
+        
+        # 使用线程池并发执行工具
+        results = []
+        max_workers = min(len(tool_calls), 3)  # 限制并发数量
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_tool = {executor.submit(execute_single_tool, tool_call): tool_call 
+                             for tool_call in tool_calls}
+            
+            # 收集结果（保持原始顺序）
+            for tool_call in tool_calls:
+                for future, original_tool_call in future_to_tool.items():
+                    if original_tool_call == tool_call:
+                        try:
+                            result = future.result(timeout=30)  # 30秒超时
+                            results.append(result)
+                            print(f"✅ [DEBUG] 工具 {result['tool_name']} 并发执行完成")
+                        except concurrent.futures.TimeoutError:
+                            print(f"⏰ [DEBUG] 工具 {tool_call['function']['name']} 执行超时")
+                            results.append({
+                                "success": False,
+                                "content": f"工具 {tool_call['function']['name']} 执行超时",
+                                "tool_name": tool_call['function']['name']
+                            })
+                        except Exception as e:
+                            print(f"❌ [DEBUG] 工具 {tool_call['function']['name']} 并发执行异常: {str(e)}")
+                            results.append({
+                                "success": False,
+                                "content": f"工具 {tool_call['function']['name']} 执行异常: {str(e)}",
+                                "tool_name": tool_call['function']['name']
+                            })
+                        break
+        
+        print(f"🔧 [DEBUG] 并发执行完成，成功: {sum(1 for r in results if r['success'])}/{len(results)}")
+        return results
+
+    def _validate_and_clean_response(self, content: str) -> str:
+        """验证和清理响应内容，移除异常的工具调用标记和markdown格式"""
+        if not content:
+            return content
+        
+        original_length = len(content)
+        cleaned_content = content
+        
+        # 1. 移除异常的工具调用标记
+        tool_patterns = [
+            r'function\w+',  # functionget_weather 等
+            r'tool_call\w+',  # tool_call 相关
+            r'\{"tool_calls"',  # JSON 工具调用残留
+        ]
+        
+        for pattern in tool_patterns:
+            matches = re.findall(pattern, cleaned_content, re.IGNORECASE)
+            if matches:
+                print(f"🔧 [DEBUG] 检测到异常工具调用标记: {matches}")
+                cleaned_content = re.sub(pattern, '', cleaned_content, flags=re.IGNORECASE)
+        
+        # 2. 清理 markdown 格式
+        markdown_patterns = [
+            # 标题格式 (# ## ### 等)
+            (r'^#{1,6}\s+(.+)$', r'\1'),
+            # 粗体格式 (**text** 或 __text__)
+            (r'\*\*(.+?)\*\*', r'\1'),
+            (r'__(.+?)__', r'\1'),
+            # 斜体格式 (*text* 或 _text_)
+            (r'(?<!\*)\*([^*]+?)\*(?!\*)', r'\1'),
+            (r'(?<!_)_([^_]+?)_(?!_)', r'\1'),
+            # 代码块格式 (```code``` 或 `code`)
+            (r'```[\s\S]*?```', ''),
+            (r'`([^`]+?)`', r'\1'),
+            # 链接格式 [text](url)
+            (r'\[([^\]]+?)\]\([^\)]+?\)', r'\1'),
+            # 图片格式 ![alt](url)
+            (r'!\[[^\]]*?\]\([^\)]+?\)', ''),
+            # 列表格式 (- 或 * 或 数字.)
+            (r'^\s*[-*+]\s+', ''),
+            (r'^\s*\d+\.\s+', ''),
+            # 引用格式 (> text)
+            (r'^\s*>\s+(.+)$', r'\1'),
+            # 水平分割线
+            (r'^\s*[-*_]{3,}\s*$', ''),
+            # 表格分隔符
+            (r'\|', ' '),
+            # HTML标签
+            (r'<[^>]+>', ''),
+        ]
+        
+        print(f"🔧 [DEBUG] 开始清理markdown格式...")
+        
+        # 按行处理，保持换行结构
+        lines = cleaned_content.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            cleaned_line = line
+            
+            # 应用所有markdown清理规则
+            for pattern, replacement in markdown_patterns:
+                if pattern.startswith('^') and pattern.endswith('$'):
+                    # 整行匹配的模式
+                    cleaned_line = re.sub(pattern, replacement, cleaned_line, flags=re.MULTILINE)
+                else:
+                    # 行内匹配的模式
+                    cleaned_line = re.sub(pattern, replacement, cleaned_line)
+            
+            # 清理多余空格但保留基本格式
+            cleaned_line = re.sub(r'\s+', ' ', cleaned_line).strip()
+            
+            # 保留非空行
+            if cleaned_line:
+                cleaned_lines.append(cleaned_line)
+        
+        # 重新组合内容
+        cleaned_content = '\n'.join(cleaned_lines)
+        
+        # 3. 最终清理
+        # 移除多余的换行符
+        cleaned_content = re.sub(r'\n{3,}', '\n\n', cleaned_content)
+        # 清理首尾空白
+        cleaned_content = cleaned_content.strip()
+        
+        # 4. 避免过度清理检查
+        if len(cleaned_content) < original_length * 0.2:  # 如果清理后内容少于原内容的20%
+            print(f"⚠️ [DEBUG] 清理后内容过短({len(cleaned_content)}/{original_length})，保留原内容")
+            return content
+        
+        if cleaned_content != content:
+            print(f"🔧 [DEBUG] 内容已清理，长度: {original_length} -> {len(cleaned_content)}")
+            print(f"🔧 [DEBUG] 清理后预览: {cleaned_content[:100]}...")
+        
+        return cleaned_content if cleaned_content else content
 
     def _chat_function_factory(
         self, chat_func: Callable[[List[Dict[str, Any]], str], AsyncIterator[str]]
