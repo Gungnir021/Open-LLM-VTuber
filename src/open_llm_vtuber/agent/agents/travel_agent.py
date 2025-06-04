@@ -37,12 +37,12 @@ if not AMAP_API_KEY:
 class TravelAgent(AgentInterface):
     """
     旅行助手 Agent，支持 DeepSeek Function Calling
-    实现天气查询、旅行建议等功能
     """
 
     _system: str = """
-    你是一个专业的旅行助手，可以帮助用户查询天气、提供旅行建议。
+    你是一个专业的旅行助手，可以帮助用户提供旅行建议。
     请用友好、专业的语气回复用户。
+    禁止输出 markdown 格式的内容。
     """
 
     def __init__(
@@ -104,16 +104,8 @@ class TravelAgent(AgentInterface):
         # 注册 ip 定位查询工具
         self._tool_manager.register_tool(IPLocationTool())
         
-        # 在这里可以轻松添加更多工具
-        # self._tool_manager.register_tool(TranslationTool())
-        # self._tool_manager.register_tool(FlightSearchTool())
-        
         print(f"🔧 [DEBUG] 工具注册完成，共注册 {len(self._tool_manager.get_all_tools())} 个工具")
     
-    def add_tool(self, tool):
-        """动态添加工具"""
-        self._tool_manager.register_tool(tool)
-
     def _set_llm(self, llm: StatelessLLMInterface):
         """
         设置要使用的 LLM
@@ -156,7 +148,6 @@ class TravelAgent(AgentInterface):
         """从聊天历史加载记忆"""
         messages = get_history(conf_uid, history_uid)
 
-        self._memory = []
         self._memory.append({
             "role": "system",
             "content": self._system,

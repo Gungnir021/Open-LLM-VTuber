@@ -90,6 +90,7 @@ character_config:
       travel_agent:
         llm_provider: 'deepseek_llm'
 
+        api_key: ''
     llm_configs:
       # 一个配置池，用于不同代理中使用的所有无状态 llm 提供商的凭据和连接详细信息
 
