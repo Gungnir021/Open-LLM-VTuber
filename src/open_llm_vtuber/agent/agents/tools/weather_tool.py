@@ -20,7 +20,7 @@ class WeatherTool(ToolBase):
     
     @property
     def description(self) -> str:
-        return "获取指定城市的当前天气信息"
+        return "获取指定城市的当前天气信息或未来7天内的天气预报"
     
     @property
     def parameters(self) -> Dict[str, Any]:
@@ -30,12 +30,25 @@ class WeatherTool(ToolBase):
                 "location": {
                     "type": "string",
                     "description": "城市名称，如：北京、上海、广州等"
+                },
+                "forecast_days": {
+                    "type": "integer",
+                    "description": "预报天数，0表示当前天气，1-7表示未来1-7天的天气预报",
+                    "minimum": 0,
+                    "maximum": 7,
+                    "default": 0
+                },
+                "unit": {
+                    "type": "string",
+                    "description": "温度单位，celsius（摄氏度）或fahrenheit（华氏度）",
+                    "enum": ["celsius", "fahrenheit"],
+                    "default": "celsius"
                 }
             },
             "required": ["location"]
         }
     
-    def execute(self, location: str) -> str:
+    def execute(self, location: str, forecast_days: int = 0, unit: str = "celsius") -> str:
         """执行天气查询"""
         try:
             # 获取地理编码
@@ -43,13 +56,20 @@ class WeatherTool(ToolBase):
             if not adcode:
                 return json.dumps({"error": f"找不到城市: {location}"}, ensure_ascii=False)
             
-            # 获取天气信息
-            weather_data = self._get_weather_data(adcode)
-            if weather_data.get("error"):
-                return json.dumps(weather_data, ensure_ascii=False)
+            # 根据forecast_days决定查询类型
+            if forecast_days == 0:
+                # 查询当前天气
+                weather_data = self._get_current_weather_data(adcode)
+                if weather_data.get("error"):
+                    return json.dumps(weather_data, ensure_ascii=False)
+                formatted_result = self._format_current_weather_result(weather_data, unit)
+            else:
+                # 查询未来天气预报
+                weather_data = self._get_forecast_weather_data(adcode, forecast_days)
+                if weather_data.get("error"):
+                    return json.dumps(weather_data, ensure_ascii=False)
+                formatted_result = self._format_forecast_weather_result(weather_data, location, forecast_days, unit)
             
-            # 格式化返回结果
-            formatted_result = self._format_weather_result(weather_data)
             return json.dumps(formatted_result, ensure_ascii=False)
             
         except Exception as e:
@@ -85,8 +105,8 @@ class WeatherTool(ToolBase):
             logger.error(f"获取地点编码时出错: {str(e)}")
             return None
     
-    def _get_weather_data(self, adcode: str) -> Dict[str, Any]:
-        """获取天气数据"""
+    def _get_current_weather_data(self, adcode: str) -> Dict[str, Any]:
+        """获取当前天气数据"""
         try:
             weather_response = requests.get(
                 "https://restapi.amap.com/v3/weather/weatherInfo",
@@ -105,18 +125,89 @@ class WeatherTool(ToolBase):
             logger.error(f"天气API请求失败: {str(e)}")
             return {"error": f"天气API请求失败: {str(e)}"}
     
-    def _format_weather_result(self, weather_data: Dict[str, Any]) -> Dict[str, Any]:
-        """格式化天气查询结果"""
+    def _get_forecast_weather_data(self, adcode: str, forecast_days: int) -> Dict[str, Any]:
+        """获取未来天气预报数据"""
+        try:
+            weather_response = requests.get(
+                "https://restapi.amap.com/v3/weather/weatherInfo",
+                params={"key": AMAP_API_KEY, "city": adcode, "extensions": "all"},
+                timeout=10
+            )
+            
+            weather_data = weather_response.json()
+            
+            if weather_data.get("status") != "1" or not weather_data.get("forecasts"):
+                return {"error": "无法获取天气预报数据"}
+            
+            return weather_data
+            
+        except Exception as e:
+            logger.error(f"天气预报API请求失败: {str(e)}")
+            return {"error": f"天气预报API请求失败: {str(e)}"}
+    
+    def _format_current_weather_result(self, weather_data: Dict[str, Any], unit: str = "celsius") -> Dict[str, Any]:
+        """格式化当前天气查询结果"""
         live = weather_data["lives"][0]
         
+        temp_c = float(live["temperature"])
+        temperature = temp_c if unit == "celsius" else round(temp_c * 9 / 5 + 32, 1)
+        temp_unit = "℃" if unit == "celsius" else "℉"
+        
         return {
+            "type": "current_weather",
             "city": live["city"],
             "weather": live["weather"],
-            "temperature": live["temperature"] + "℃",
+            "temperature": f"{temperature}{temp_unit}",
             "humidity": live["humidity"] + "%",
             "windpower": live["windpower"] + "级",
             "winddirection": live.get("winddirection", "未知"),
-            "reporttime": live.get("reporttime", "")
+            "reporttime": live.get("reporttime", ""),
+            "unit": unit
+        }
+    
+    def _format_forecast_weather_result(self, weather_data: Dict[str, Any], location: str, forecast_days: int, unit: str = "celsius") -> Dict[str, Any]:
+        """格式化天气预报查询结果"""
+        forecasts = weather_data["forecasts"][0].get("casts", [])
+        today = datetime.now()
+        results = []
+        
+        for i in range(1, min(forecast_days + 1, len(forecasts) + 1)):
+            target_date = (today + timedelta(days=i)).strftime("%Y-%m-%d")
+            forecast = next((f for f in forecasts if f.get("date") == target_date), None)
+            
+            if forecast:
+                temp_day = float(forecast.get("daytemp", 0))
+                temp_night = float(forecast.get("nighttemp", 0))
+                
+                if unit == "fahrenheit":
+                    temp_day = round(temp_day * 9 / 5 + 32, 1)
+                    temp_night = round(temp_night * 9 / 5 + 32, 1)
+                
+                temp_unit = "℃" if unit == "celsius" else "℉"
+                
+                results.append({
+                    "date": target_date,
+                    "day_temperature": f"{temp_day}{temp_unit}",
+                    "night_temperature": f"{temp_night}{temp_unit}",
+                    "day_weather": forecast.get("dayweather", "未知"),
+                    "night_weather": forecast.get("nightweather", "未知"),
+                    "day_wind_direction": forecast.get("daywind", "未知"),
+                    "day_wind_power": forecast.get("daypower", "未知") + "级",
+                    "night_wind_direction": forecast.get("nightwind", "未知"),
+                    "night_wind_power": forecast.get("nightpower", "未知") + "级"
+                })
+            else:
+                results.append({
+                    "date": target_date,
+                    "error": "未找到预报数据"
+                })
+        
+        return {
+            "type": "forecast_weather",
+            "location": location,
+            "forecast_days": forecast_days,
+            "unit": unit,
+            "forecasts": results
         }
 
 # 保留原有的独立函数以保持向后兼容性
@@ -124,6 +215,11 @@ def get_weather(location: str) -> str:
     """获取城市当前天气（摄氏度）- 为 DeepSeek Function Calling 优化"""
     weather_tool = WeatherTool()
     return weather_tool.execute(location)
+
+def get_weather_forecast(location: str, days: int = 7, unit: str = "celsius") -> str:
+    """获取城市未来天气预报"""
+    weather_tool = WeatherTool()
+    return weather_tool.execute(location, forecast_days=days, unit=unit)
 
 def get_location_adcode(location: str) -> Optional[str]:
     """
