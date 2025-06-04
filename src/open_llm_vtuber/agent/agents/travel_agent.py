@@ -32,9 +32,9 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 AMAP_API_KEY = os.getenv("AMAP_API_KEY")
 
 if not DEEPSEEK_API_KEY:
-    logger.warning("❌ 未检测到 DEEPSEEK_API_KEY，请在 .env 文件中配置。")
+    logger.warning("ERROR 未检测到 DEEPSEEK_API_KEY，请在 .env 文件中配置。")
 if not AMAP_API_KEY:
-    logger.warning("❌ 未检测到 AMAP_API_KEY，请在 .env 文件中配置。")
+    logger.warning("ERROR 未检测到 AMAP_API_KEY，请在 .env 文件中配置。")
 
 
 class TravelAgent(AgentInterface):
@@ -230,8 +230,8 @@ class TravelAgent(AgentInterface):
         print(f"🔧 [DEBUG] 用户输入: {query}")
         
         if not DEEPSEEK_API_KEY:
-            print("❌ [DEBUG] DeepSeek API Key 未配置")
-            return "❌ DeepSeek API Key 未配置，无法使用智能功能。"
+            print("ERROR [DEBUG] DeepSeek API Key 未配置")
+            return "ERROR DeepSeek API Key 未配置，无法使用智能功能。"
             
         headers = {
             "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
@@ -278,8 +278,8 @@ class TravelAgent(AgentInterface):
             )
             
             if response.status_code != 200:
-                print(f"❌ [DEBUG] API 调用失败: {response.status_code} - {response.text}")
-                return f"❌ API 调用失败: {response.status_code}"
+                print(f"ERROR [DEBUG] API 调用失败: {response.status_code} - {response.text}")
+                return f"ERROR API 调用失败: {response.status_code}"
             
             response_json = response.json()
             print("🔧 [DEBUG] DeepSeek API 响应状态: 成功")
@@ -346,11 +346,11 @@ class TravelAgent(AgentInterface):
                     print(f"🔧 [DEBUG] 最终响应状态码: {final_response.status_code}")
                     
                     if final_response.status_code != 200:
-                        print(f"❌ [DEBUG] 最终API调用失败: {final_response.text}")
+                        print(f"ERROR [DEBUG] 最终API调用失败: {final_response.text}")
                         if retry < max_retries - 1:
                             print(f"⚠️ [DEBUG] 第 {retry + 1} 次尝试失败，重试中...")
                             continue
-                        return "❌ 获取最终回复时出现错误"
+                        return "ERROR 获取最终回复时出现错误"
                     
                     final_response_json = final_response.json()
                     
@@ -366,7 +366,7 @@ class TravelAgent(AgentInterface):
                         continue
                         
                 except Exception as e:
-                    print(f"❌ [DEBUG] 第 {retry + 1} 次最终调用异常: {str(e)}")
+                    print(f"ERROR [DEBUG] 第 {retry + 1} 次最终调用异常: {str(e)}")
                     if retry < max_retries - 1:
                         continue
                     else:
@@ -380,9 +380,9 @@ class TravelAgent(AgentInterface):
             return final_content
             
         except Exception as e:
-            print(f"❌ [DEBUG] DeepSeek API 调用失败: {str(e)}")
+            print(f"ERROR [DEBUG] DeepSeek API 调用失败: {str(e)}")
             logger.error(f"DeepSeek API 调用失败: {str(e)}")
-            return f"❌ 抱歉，智能功能暂时不可用: {str(e)}"
+            return f"ERROR 抱歉，智能功能暂时不可用: {str(e)}"
     
     def _execute_tools_concurrently(self, tool_calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """并发执行多个工具调用"""
@@ -410,7 +410,7 @@ class TravelAgent(AgentInterface):
                 }
                 
             except Exception as tool_error:
-                print(f"❌ [DEBUG] 工具 {function_name} 执行失败: {str(tool_error)}")
+                print(f"ERROR [DEBUG] 工具 {function_name} 执行失败: {str(tool_error)}")
                 error_message = f"工具 {function_name} 执行失败: {str(tool_error)}"
                 
                 return {
@@ -444,7 +444,7 @@ class TravelAgent(AgentInterface):
                                 "tool_name": tool_call['function']['name']
                             })
                         except Exception as e:
-                            print(f"❌ [DEBUG] 工具 {tool_call['function']['name']} 并发执行异常: {str(e)}")
+                            print(f"ERROR [DEBUG] 工具 {tool_call['function']['name']} 并发执行异常: {str(e)}")
                             results.append({
                                 "success": False,
                                 "content": f"工具 {tool_call['function']['name']} 执行异常: {str(e)}",
@@ -591,7 +591,7 @@ class TravelAgent(AgentInterface):
                 response = self._deepseek_function_call(user_input)
                 
                 # 检查是否成功调用了函数（通过响应内容判断）
-                if not response.startswith("❌"):
+                if not response.startswith("ERROR"):
                     # 成功使用 Function Calling，流式输出响应
                     print("✅ [DEBUG] Function Calling 成功，开始流式输出...")
                     for char in response:
@@ -608,7 +608,7 @@ class TravelAgent(AgentInterface):
                     logger.info(f"Function calling 不可用，使用普通聊天模式: {response}")
                     
             except Exception as e:
-                print(f"❌ [DEBUG] Function calling 出错: {str(e)}")
+                print(f"ERROR [DEBUG] Function calling 出错: {str(e)}")
                 logger.error(f"Function calling 出错，回退到普通聊天: {str(e)}")
             
             # 回退到普通聊天流程

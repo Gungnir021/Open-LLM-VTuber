@@ -75,5 +75,5 @@ class ToolManager:
             return result
         except Exception as e:
             error_msg = f"工具执行失败: {str(e)}"
-            print(f"❌ [DEBUG] {error_msg}")
+            print(f"ERROR [DEBUG] {error_msg}")
             return json.dumps({"error": error_msg}, ensure_ascii=False)
