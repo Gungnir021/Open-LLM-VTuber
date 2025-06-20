@@ -42,21 +42,6 @@ class TravelAgent(AgentInterface):
     旅行助手 Agent，支持 DeepSeek Function Calling
     """
 
-    _system: str = """
-    你可以处理用户的自然语言输入，并根据需要调用相关工具获取信息。
-    请用友好、专业的语气回复用户。
-    禁止输出 markdown 格式的内容，以自然段的形式回复。
-
-    请根据用户的具体需求，智能判断需要调用哪些工具：
-    - 如果用户询问涉及位置的问题，考虑是否需要获取当前位置
-    - 如果用户询问涉及天气的问题，考虑是否需要查询天气
-    - 如果用户询问涉及出行、路线的问题，考虑是否需要查询交通信息
-    - 如果用户询问涉及设施、服务的问题，考虑是否需要查询基础设施
-
-    你可以同时调用多个工具来获取完整信息，然后基于所有信息给出综合建议。
-    请根据用户问题的复杂程度和信息需求，自主决定调用工具的数量和类型。
-    """
-
     def __init__(
         self,
         llm: StatelessLLMInterface,
@@ -82,15 +67,13 @@ class TravelAgent(AgentInterface):
         super().__init__()
         self._memory = []
         self._llm = llm
+        self._system = system_prompt
         self._live2d_model = live2d_model
         self._tts_preprocessor_config = tts_preprocessor_config
         self._faster_first_response = faster_first_response
         self._segment_method = segment_method
         self.interrupt_method = interrupt_method
         self._interrupt_handled = False
-        
-        if system_prompt:
-            self._system = system_prompt
         
         # 初始化工具管理器
         self._tool_manager = ToolManager()
