@@ -163,9 +163,9 @@
         "name": "cat",
         "description": "Orange-Haired Girl, locally available. no internet required.",
         "url": "https://cdn.jsdelivr.net/npm/live2d-widget-model-wanko@1.0.5/assets/wanko.model.json",
-        "kScale": 1.3,
+        "kScale": 0.3,
         "initialXshift": 0,
-        "initialYshift": 250,
+        "initialYshift": 350,
         "kXOffset": 1150,
         "idleMotionGroupName": "Idle",
         "emotionMap": {

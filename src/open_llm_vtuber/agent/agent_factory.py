@@ -112,8 +112,6 @@ class AgentFactory:
                     f"Configuration not found for LLM provider: {llm_provider}"
                 )
             
-            persona_prompt = travel_settings.get("persona_prompt", "You are a helpful travel assistant.")
-            
             llm = StatelessLLMFactory.create_llm(llm_provider, **llm_config)
             
             # Create a default tts_preprocessor_config if None is provided
@@ -140,7 +138,7 @@ class AgentFactory:
             
             return TravelAgent(
                 llm=llm, 
-                system_prompt=persona_prompt, 
+                system_prompt=system_prompt, 
                 live2d_model=live2d_model,
                 tts_preprocessor_config=tts_preprocessor_config
             )

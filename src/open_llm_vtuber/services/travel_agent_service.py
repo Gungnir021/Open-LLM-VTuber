@@ -78,7 +78,10 @@ class TravelAgentService:
                 return
             
             # 构建用户输入消息，包含地标信息
-            user_message = f"我刚刚上传了一张图片，识别出的地标是：{landmark_name}。请为我介绍这个地标的历史背景、文化意义、建筑特色和实用建议。"
+            user_message = f"""
+            我刚刚上传了一张图片，识别出的地标是：{landmark_name}。请为我介绍这个地标的历史背景、文化意义、建筑特色和实用建议。
+            禁止输出 # 号，禁止输出 markdown 格式, 以一两段自然段的形式回复。
+            """
             
             # 为每个连接的客户端触发对话
             for client_uid, websocket in self.websocket_handler.client_connections.items():

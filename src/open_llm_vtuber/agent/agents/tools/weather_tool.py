@@ -9,7 +9,7 @@ from .tool_base import ToolBase
 
 # 加载环境变量
 load_dotenv()
-AMAP_API_KEY = os.getenv("AMAP_API_KEY", "ee170d9927962ec572636358acd61d53")
+AMAP_API_KEY = os.getenv("AMAP_API_KEY")
 
 class WeatherTool(ToolBase):
     """天气查询工具"""
