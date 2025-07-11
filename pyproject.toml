@@ -34,7 +34,6 @@ dependencies = [
     "tqdm>=4.67.1",
     "uvicorn[standard]>=0.33.0",
     "websocket-client>=1.8.0",
-    # 新增依赖 - 用于旅游代理功能
     "pillow>=10.2.0",          # 图像处理
     "geopy>=2.4.1",            # 地理编码和距离计算
     "folium>=0.15.1",          # 交互式地图
